@@ -1,0 +1,4 @@
+--require env-test
+--reporter spec
+--ui bdd
+--timeout 5000
