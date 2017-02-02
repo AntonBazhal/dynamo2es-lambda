@@ -1,13 +1,17 @@
 'use strict';
 
 const aeclient = require('aws-elasticsearch-client');
-const expect = require('chai').expect;
+const chai = require('chai');
+const chaiSubset = require('chai-subset');
 const lambdaTester = require('lambda-tester');
 const sinon = require('sinon');
 const uuid = require('uuid');
 
 const formatEvent = require('./utils/ddb-stream-event-formatter');
 const lambdaHandler = require('../');
+
+chai.use(chaiSubset);
+const expect = chai.expect;
 
 const errors = lambdaHandler.errors;
 let sandbox;
@@ -73,7 +77,8 @@ describe('handler', function() {
         idField: {},
         indexField: {},
         typeField: {},
-        pickFields: {}
+        pickFields: {},
+        versionField: {}
       };
 
       expect(() => lambdaHandler(testOptions))
@@ -89,6 +94,7 @@ describe('handler', function() {
           'child "indexField" fails because ["indexField" must be a string, "indexField" must be an array]',
           'child "typeField" fails because ["typeField" must be a string, "typeField" must be an array]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
+          'child "versionField" fails because ["versionField" must be a string]',
           '"value" must contain at least one of [index, indexField]',
           '"value" must contain at least one of [type, typeField]'
         ]));
@@ -260,9 +266,9 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
-          .and.deep.equals({
+          .and.containSubset({
             _id: expectedConcat,
             _index: expectedConcat,
             _type: expectedConcat
@@ -303,9 +309,9 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
-          .and.deep.equals({
+          .and.containSubset({
             _id: expectedConcat,
             _index: expectedConcat,
             _type: expectedConcat
@@ -346,7 +352,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_id', testField);
 
@@ -385,7 +391,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_id', `${testField1}.${testField2}`);
 
@@ -442,7 +448,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_id', `${testField1}.${testField2}`);
 
@@ -474,7 +480,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_index', testIndex);
 
@@ -507,7 +513,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_index', testField);
 
@@ -544,7 +550,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_index', `${testField1}.${testField2}`);
 
@@ -594,7 +600,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_type', testType);
 
@@ -627,7 +633,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_type', testField);
 
@@ -664,7 +670,7 @@ describe('handler', function() {
           .and.to.have.property('body');
         expect(params.body[0])
           .to.exist
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.is.an('object')
           .and.to.have.property('_type', `${testField1}.${testField2}`);
 
@@ -818,6 +824,185 @@ describe('handler', function() {
     });
   });
 
+  describe('versionField', function() {
+    it('should use field`s value when "versionField" is provided', function() {
+      const testResult = uuid.v4();
+      const testDoc = {
+        field1: uuid.v4(),
+        field2: 1
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: testDoc,
+        keys: {
+          field1: testDoc.field1
+        }
+      });
+
+      stubESCalls(params => {
+        expect(params)
+          .to.exist
+          .and.to.have.property('body')
+          .that.is.an('array')
+          .with.lengthOf(2);
+        expect(params.body[0])
+          .to.be.an('object')
+          .and.to.have.property('index')
+          .that.containSubset({
+            version: testDoc.field2,
+            versionType: 'external'
+          });
+
+        return Promise.resolve(testResult);
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionField: 'field2'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(result => {
+          expect(result).to.exist.and.to.be.equal(testResult);
+        });
+    });
+
+    it('should not set "version" and "versionType" fields when "versionField" is not provided', function() {
+      const testResult = uuid.v4();
+      const testDoc = {
+        field1: uuid.v4()
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: testDoc,
+        keys: {
+          field1: testDoc.field1
+        }
+      });
+
+      stubESCalls(params => {
+        expect(params)
+          .to.exist
+          .and.to.have.property('body')
+          .that.is.an('array')
+          .with.lengthOf(2);
+        expect(params.body[0])
+          .to.be.an('object')
+          .and.to.have.property('index');
+
+        const actionDescription = params.body[0].index;
+        expect(actionDescription).not.to.have.property('version');
+        expect(actionDescription).not.to.have.property('versionType');
+
+        return Promise.resolve(testResult);
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(result => {
+          expect(result).to.exist.and.to.be.equal(testResult);
+        });
+    });
+
+    it('should throw when "versionField" not found in record', function() {
+      stubESCalls();
+
+      const testEvent = formatEvent();
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionField: 'notFoundField'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(err)
+            .to.be.an.instanceOf(errors.FieldNotFoundError)
+            .with.property('message', '"notFoundField" field not found in record');
+        });
+    });
+
+    it('should throw when version is invalid', function() {
+      stubESCalls();
+
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: {
+          _version: '1'
+        },
+        keys: {
+          key: uuid.v4()
+        }
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionField: '_version'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(err)
+            .to.be.an.instanceOf(errors.ValidationError)
+            .with.property('message', '"_version" must be a number');
+        });
+    });
+
+    it('should increment version for "REMOVE" event', function() {
+      const testResult = uuid.v4();
+      const testDoc = {
+        field1: uuid.v4(),
+        field2: 1
+      };
+      const testEvent = formatEvent({
+        name: 'REMOVE',
+        old: testDoc,
+        keys: {
+          field1: testDoc.field1
+        }
+      });
+
+      stubESCalls(params => {
+        expect(params)
+          .to.exist
+          .and.to.have.property('body')
+          .that.is.an('array')
+          .with.lengthOf(1);
+        expect(params.body[0])
+          .to.be.an('object')
+          .and.to.have.property('delete')
+          .that.containSubset({
+            version: testDoc.field2 + 1,
+            versionType: 'external'
+          });
+
+        return Promise.resolve(testResult);
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionField: 'field2'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(result => {
+          expect(result).to.exist.and.to.be.equal(testResult);
+        });
+    });
+  });
+
   describe('event validation', function() {
     it('should throw when invalid event received', function() {
       stubESCalls();
@@ -907,8 +1092,8 @@ describe('handler', function() {
           .with.lengthOf(2);
         expect(params.body[0])
           .to.be.an('object')
-          .and.to.have.property('create')
-          .that.deep.equals({
+          .and.to.have.property('index')
+          .that.containSubset({
             _index: 'index',
             _type: 'type',
             _id: testDoc.field1
@@ -954,15 +1139,14 @@ describe('handler', function() {
           .with.lengthOf(2);
         expect(params.body[0])
           .to.be.an('object')
-          .and.to.have.property('update')
-          .that.deep.equals({
+          .and.to.have.property('index')
+          .that.containSubset({
             _index: 'index',
             _type: 'type',
             _id: testDoc.field1
           });
         expect(params.body[1])
           .to.be.an('object')
-          .and.to.have.property('doc')
           .that.deep.equals(testDoc);
 
         return Promise.resolve(testResult);
@@ -1003,7 +1187,7 @@ describe('handler', function() {
         expect(params.body[0])
           .to.be.an('object')
           .and.to.have.property('delete')
-          .that.deep.equals({
+          .that.containSubset({
             _index: 'index',
             _type: 'type',
             _id: testDoc.field1
@@ -1095,7 +1279,7 @@ describe('handler', function() {
           .with.lengthOf(2);
         expect(params.body[0])
           .to.be.an('object')
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.has.property('_id', testDoc.field);
         expect(params.body[1])
           .to.be.an('object')
@@ -1141,18 +1325,17 @@ describe('handler', function() {
           .with.lengthOf(4);
         expect(params.body[0])
           .to.be.an('object')
-          .and.to.have.property('create')
+          .and.to.have.property('index')
           .that.has.property('_id', testDoc1.field);
         expect(params.body[1])
           .to.be.an('object')
           .and.to.deep.equal(testDoc1);
         expect(params.body[2])
           .to.be.an('object')
-          .and.to.have.property('update')
+          .and.to.have.property('index')
           .that.has.property('_id', testDoc2.field);
         expect(params.body[3])
           .to.be.an('object')
-          .that.has.property('doc')
           .that.deep.equals(testDoc2);
 
         return Promise.resolve(testResult);
