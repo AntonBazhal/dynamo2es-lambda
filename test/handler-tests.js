@@ -869,6 +869,50 @@ describe('handler', function() {
         });
     });
 
+    it('should support 0 version', function() {
+      const testResult = uuid.v4();
+      const testDoc = {
+        field1: uuid.v4(),
+        field2: 0
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: testDoc,
+        keys: {
+          field1: testDoc.field1
+        }
+      });
+
+      stubESCalls(params => {
+        expect(params)
+          .to.exist
+          .and.to.have.property('body')
+          .that.is.an('array')
+          .with.lengthOf(2);
+        expect(params.body[0])
+          .to.be.an('object')
+          .and.to.have.property('index')
+          .that.containSubset({
+            version: testDoc.field2,
+            versionType: 'external'
+          });
+
+        return Promise.resolve(testResult);
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionField: 'field2'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(result => {
+          expect(result).to.exist.and.to.be.equal(testResult);
+        });
+    });
+
     it('should not set "version" and "versionType" fields when "versionField" is not provided', function() {
       const testResult = uuid.v4();
       const testDoc = {
