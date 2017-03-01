@@ -21,10 +21,12 @@ module.exports = function(records) {
 
       return {
         eventName,
+        eventSource: 'aws:dynamodb',
         dynamodb: {
           Keys: marshaler.toDDB(keys),
           NewImage: newImage ? marshaler.toDDB(newImage) : undefined,
-          OldImage: oldImage ? marshaler.toDDB(oldImage) : undefined
+          OldImage: oldImage ? marshaler.toDDB(oldImage) : undefined,
+          StreamViewType: 'NEW_AND_OLD_IMAGES'
         }
       };
     })
