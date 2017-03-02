@@ -213,6 +213,26 @@ describe('handler', function() {
         });
     });
 
+    it('should use return value from "afterHook" when provided', function() {
+      stubESCalls();
+      const testEvent = formatEvent();
+      const testHookResult = uuid.v4();
+
+      const handler = lambdaHandler({
+        afterHook: () => {
+          return Promise.resolve(testHookResult);
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(result => {
+          expect(result).to.be.deep.equal(testHookResult);
+        });
+    });
+
     it('should call "recordErrorHook" when provided and should not throw', function() {
       stubESCalls();
 

@@ -32,9 +32,11 @@ $ npm install dynamo2es-lambda
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 
-> Note: hooks provide convenient place to add custom logic, e.g. logging, but they don't change workflow (except error hooks where you can define if error should be thrown)
+> Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
 
 > Note: `context` object, available in hooks, includes all the [context extensions provided by `lambda-handler-as-promised`][lambda-handler-as-promised-url]
+
+> Note: `afterHook` and `errorHook` support asynchronous operations when logic is wrapped into Promise
 
 ## Example
 
