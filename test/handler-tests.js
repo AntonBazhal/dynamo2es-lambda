@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('lodash');
 const aeclient = require('aws-elasticsearch-client');
 const chai = require('chai');
 const chaiSubset = require('chai-subset');
@@ -164,10 +165,16 @@ describe('handler', function() {
       stubESCalls(() => Promise.resolve(testResult));
 
       let hookCalled = false;
-      const testEvent = formatEvent();
+      const testItemKeys = { id: uuid.v4() };
+      const testItemData = { data: 'some data' };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        keys: testItemKeys,
+        new: testItemData
+      });
 
       const handler = lambdaHandler({
-        afterHook: (event, context, result) => {
+        afterHook: (event, context, result, parsedRecords) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
           expect(context)
@@ -176,6 +183,24 @@ describe('handler', function() {
           expect(result)
             .to.exist
             .and.to.deep.equal(testResult);
+          expect(parsedRecords)
+            .to.exist
+            .and.to.deep.equal([
+              {
+                event: {
+                  eventName: 'INSERT',
+                  eventSource: testEvent.Records[0].eventSource,
+                  dynamodb: {
+                    Keys: testItemKeys,
+                    NewImage: _.assign({}, testItemKeys, testItemData),
+                    OldImage: {},
+                    StreamViewType: testEvent.Records[0].dynamodb.StreamViewType
+                  }
+                },
+                action: { index: { _index: 'index', _type: 'type', _id: testItemKeys.id } },
+                document: _.assign({}, testItemKeys, testItemData)
+              }
+            ]);
         },
         index: 'index',
         type: 'type'
@@ -248,7 +273,6 @@ describe('handler', function() {
   describe('separator', function() {
     it('should use separator when provided', function() {
       const testSeparator = '~';
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -259,7 +283,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         const expectedConcat = `${testField1}${testSeparator}${testField2}`;
         expect(params)
           .to.exist
@@ -274,7 +298,7 @@ describe('handler', function() {
             _type: expectedConcat
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -285,13 +309,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should support empty separator', function() {
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -302,7 +325,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         const expectedConcat = `${testField1}${testField2}`;
         expect(params)
           .to.exist
@@ -317,7 +340,7 @@ describe('handler', function() {
             _type: expectedConcat
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -328,15 +351,14 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
   });
 
   describe('id', function() {
     it('should use "idField" when provided (single field)', function() {
-      const testResult = uuid.v4();
       const testField = uuid.v4();
       const testEvent = formatEvent({
         name: 'INSERT',
@@ -346,7 +368,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -356,7 +378,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_id', testField);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -367,13 +389,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "idField" when provided (multiple fields)', function() {
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -385,7 +406,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -395,7 +416,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_id', `${testField1}.${testField2}`);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -406,8 +427,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
@@ -431,7 +452,6 @@ describe('handler', function() {
     });
 
     it('should concatenate record keys when "idField" not provided', function() {
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -442,7 +462,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -452,7 +472,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_id', `${testField1}.${testField2}`);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -462,8 +482,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
   });
@@ -471,10 +491,9 @@ describe('handler', function() {
   describe('index', function() {
     it('should use "index" value when provided', function() {
       const testIndex = uuid.v4();
-      const testResult = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -484,7 +503,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_index', testIndex);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -494,20 +513,19 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "indexField" when provided (single field)', function() {
-      const testResult = uuid.v4();
       const testField = uuid.v4();
       const testEvent = formatEvent({
         name: 'INSERT',
         keys: { field: testField }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -517,7 +535,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_index', testField);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -527,13 +545,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "indexField" when provided (multiple fields)', function() {
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -544,7 +561,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -554,7 +571,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_index', `${testField1}.${testField2}`);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -564,8 +581,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
@@ -591,10 +608,9 @@ describe('handler', function() {
   describe('type', function() {
     it('should use "type" value when provided', function() {
       const testType = uuid.v4();
-      const testResult = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -604,7 +620,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_type', testType);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -614,20 +630,19 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "typeField" when provided (single field)', function() {
-      const testResult = uuid.v4();
       const testField = uuid.v4();
       const testEvent = formatEvent({
         name: 'INSERT',
         keys: { field: testField }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -637,7 +652,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_type', testField);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -647,13 +662,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "typeField" when provided (multiple fields)', function() {
-      const testResult = uuid.v4();
       const testField1 = uuid.v4();
       const testField2 = uuid.v4();
       const testEvent = formatEvent({
@@ -664,7 +678,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -674,7 +688,7 @@ describe('handler', function() {
           .that.is.an('object')
           .and.to.have.property('_type', `${testField1}.${testField2}`);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -684,8 +698,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
@@ -710,7 +724,6 @@ describe('handler', function() {
 
   describe('pickFields', function() {
     it('should use "pickFields" when provided (single field)', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4()
@@ -720,7 +733,7 @@ describe('handler', function() {
         new: testDoc
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -729,7 +742,7 @@ describe('handler', function() {
           .and.to.be.an('object')
           .and.to.deep.equal({ field1: testDoc.field1 });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -740,13 +753,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should use "pickFields" when provided (multiple fields)', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4(),
@@ -757,7 +769,7 @@ describe('handler', function() {
         new: testDoc
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -769,7 +781,7 @@ describe('handler', function() {
             field2: testDoc.field2
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -780,13 +792,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should pick all the fields when "pickFields" not provided', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4()
@@ -799,7 +810,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body');
@@ -808,7 +819,7 @@ describe('handler', function() {
           .and.to.be.an('object')
           .and.to.deep.equal(testDoc);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -818,15 +829,14 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
   });
 
   describe('versionField', function() {
     it('should use field`s value when "versionField" is provided', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: 1
@@ -839,7 +849,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -853,7 +863,7 @@ describe('handler', function() {
             versionType: 'external'
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -864,13 +874,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should support 0 version', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: 0
@@ -883,7 +892,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -897,7 +906,7 @@ describe('handler', function() {
             versionType: 'external'
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -908,13 +917,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should not set "version" and "versionType" fields when "versionField" is not provided', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4()
       };
@@ -926,7 +934,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -940,7 +948,7 @@ describe('handler', function() {
         expect(actionDescription).not.to.have.property('version');
         expect(actionDescription).not.to.have.property('versionType');
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -950,8 +958,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
@@ -1003,7 +1011,6 @@ describe('handler', function() {
     });
 
     it('should increment version for "REMOVE" event', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: 1
@@ -1016,7 +1023,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1030,7 +1037,7 @@ describe('handler', function() {
             versionType: 'external'
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1041,8 +1048,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
   });
@@ -1115,7 +1122,6 @@ describe('handler', function() {
 
   describe('event names (types)', function() {
     it('should support "INSERT" event', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4()
@@ -1128,7 +1134,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1146,7 +1152,7 @@ describe('handler', function() {
           .to.be.an('object')
           .and.to.deep.equal(testDoc);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1156,13 +1162,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should support "MODIFY" event', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4()
@@ -1175,7 +1180,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1193,7 +1198,7 @@ describe('handler', function() {
           .to.be.an('object')
           .that.deep.equals(testDoc);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1203,13 +1208,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should support "REMOVE" event', function() {
-      const testResult = uuid.v4();
       const testDoc = {
         field1: uuid.v4(),
         field2: uuid.v4()
@@ -1222,7 +1226,7 @@ describe('handler', function() {
         }
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1237,7 +1241,7 @@ describe('handler', function() {
             _id: testDoc.field1
           });
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1247,8 +1251,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
@@ -1307,7 +1311,6 @@ describe('handler', function() {
 
   describe('events count', function() {
     it('should support single event', function() {
-      const testResult = uuid.v4();
       const testDoc = { field: uuid.v4() };
       const testEvent = formatEvent({
         name: 'INSERT',
@@ -1315,7 +1318,7 @@ describe('handler', function() {
         newImage: testDoc
       });
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1329,7 +1332,7 @@ describe('handler', function() {
           .to.be.an('object')
           .and.to.deep.equal(testDoc);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1339,13 +1342,12 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
 
     it('should support multiple events', function() {
-      const testResult = uuid.v4();
       const testDoc1 = { field: uuid.v4() };
       const testDoc2 = { field: uuid.v4() };
       const testEvent = formatEvent([
@@ -1361,7 +1363,7 @@ describe('handler', function() {
         }
       ]);
 
-      stubESCalls(params => {
+      const stub = stubESCalls(params => {
         expect(params)
           .to.exist
           .and.to.have.property('body')
@@ -1382,7 +1384,7 @@ describe('handler', function() {
           .to.be.an('object')
           .that.deep.equals(testDoc2);
 
-        return Promise.resolve(testResult);
+        return Promise.resolve();
       });
 
       const handler = lambdaHandler({
@@ -1392,8 +1394,8 @@ describe('handler', function() {
 
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(result => {
-          expect(result).to.exist.and.to.be.equal(testResult);
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
         });
     });
   });
