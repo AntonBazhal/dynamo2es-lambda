@@ -28,13 +28,15 @@ $ npm install dynamo2es-lambda
 - **[pickFields]** - { String | String[] } - by default, the whole document is sent to Elasticsearch for indexing; if this option is provided, only field(s) specified would be sent
 - **[separator]** - { String } - separator that is used to concatenate fields [defaults to `'.'`]
 - **[beforeHook]** - { Function(event, context) } - function to be called before any processing is done
-- **[afterHook]** - { Function(event, context, result) } - function to be called after all the processing is done
+- **[afterHook]** - { Function(event, context, result, meta) } - function to be called after all the processing is done; `meta` object contains parsed event data, action description and document that was indexed
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 
-> Note: hooks provide convenient place to add custom logic, e.g. logging, but they don't change workflow (except error hooks where you can define if error should be thrown)
+> Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
 
 > Note: `context` object, available in hooks, includes all the [context extensions provided by `lambda-handler-as-promised`][lambda-handler-as-promised-url]
+
+> Note: `afterHook` and `errorHook` support asynchronous operations when logic is wrapped into Promise
 
 ## Example
 
