@@ -166,7 +166,7 @@ describe('handler', function() {
 
       let hookCalled = false;
       const testItemKeys = { id: uuid.v4() };
-      const testItemData = { data: 'some data' };
+      const testItemData = { data: 'some data', nestedData: { data: 'nested data' } };
       const testEvent = formatEvent({
         name: 'INSERT',
         keys: testItemKeys,
