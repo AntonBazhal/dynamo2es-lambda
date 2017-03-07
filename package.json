@@ -1,6 +1,6 @@
 {
   "name": "dynamo2es-lambda",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Configurable AWS Lambda handler to index documents from DynamoDB Streams in Amazon Elasticsearch",
   "repository": {
     "type": "git",
@@ -34,22 +34,22 @@
   },
   "license": "MIT",
   "dependencies": {
-    "aws-elasticsearch-client": "^1.0.0",
+    "aws-elasticsearch-client": "^1.0.1",
     "dynamodb-marshaler": "^2.0.0",
-    "joi": "^10.2.0",
+    "joi": "^10.2.2",
     "lambda-handler-as-promised": "^1.2.0",
     "lodash": "^4.17.4"
   },
   "devDependencies": {
     "chai": "^3.5.0",
-    "chai-subset": "^1.4.0",
+    "chai-subset": "^1.5.0",
     "env-test": "^1.0.0",
-    "eslint": "^3.15.0",
-    "eslint-config-airbnb-base": "^11.1.0",
+    "eslint": "^3.17.1",
+    "eslint-config-airbnb-base": "^11.1.1",
     "eslint-plugin-import": "^2.2.0",
     "eslint-plugin-mocha": "^4.8.0",
     "istanbul": "^0.4.5",
-    "lambda-tester": "^2.7.0",
+    "lambda-tester": "^2.8.0",
     "mocha": "^3.2.0",
     "sinon": "^1.17.7",
     "uuid": "^3.0.1"
