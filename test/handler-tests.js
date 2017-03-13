@@ -101,6 +101,40 @@ describe('handler', function() {
         ]));
     });
 
+    it('should throw when elasticsearch options are invalid', function() {
+      const testOptions = {
+        elasticsearch: {
+          bulk: ''
+        },
+        index: 'index',
+        type: 'type'
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          'child "elasticsearch" fails because [child "bulk" fails because ["bulk" must be an object]]'
+        ]));
+    });
+
+    it('should throw when elasticsearch.bulk options are invalid', function() {
+      const testOptions = {
+        es: {
+          bulk: {
+            body: {}
+          }
+        },
+        index: 'index',
+        type: 'type'
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          'child "es" fails because [child "bulk" fails because [child "body" fails because ["body" is not allowed]]]'
+        ]));
+    });
+
     it('should throw when options are invalid (second set)', function() {
       const testOptions = {
         elasticsearch: 'foo',
@@ -1408,6 +1442,48 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
+        index: 'index',
+        type: 'type'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          expect(stub.called).to.be.true;
+        });
+    });
+  });
+
+  describe('bulk options', function() {
+    it('should pass bulk options to the request when provided', function() {
+      const testKeys = { id: uuid.v4() };
+      const testEvent = formatEvent({ name: 'INSERT', keys: testKeys });
+      const testBulkOptions = {
+        refresh: 'true'
+      };
+
+      const stub = stubESCalls(params => {
+        expect(params).to.deep.equal({
+          body: [
+            {
+              index: {
+                _index: 'index',
+                _type: 'type',
+                _id: testKeys.id
+              }
+            },
+            testKeys
+          ],
+          refresh: testBulkOptions.refresh
+        });
+
+        return Promise.resolve();
+      });
+
+      const handler = lambdaHandler({
+        elasticsearch: {
+          bulk: testBulkOptions
+        },
         index: 'index',
         type: 'type'
       });

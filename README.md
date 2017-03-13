@@ -20,11 +20,12 @@ $ npm install dynamo2es-lambda
 
 - **index** - { String } - Elasticsearch index to be used for all the documents; optional if `indexField` is provided
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
-- **[elasticsearch - alias: es]** - { Object } - Elasticsearch connection configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
+- **[elasticsearch - alias: es]** - { Object } - Elasticsearch configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
+  - **[bulk]** - { Object } - aside from general Elasticsearch configuration, you can use this field to pass additional parameters to [bulk API][bulk-api-url]
 - **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `index`
 - **[typeField]** - { String | String[] } - field(s) to be used as an Elasticsearch type; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `type`
 - **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator` [defaults to document's key field(s)]
-- - **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
+- **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
 - **[pickFields]** - { String | String[] } - by default, the whole document is sent to Elasticsearch for indexing; if this option is provided, only field(s) specified would be sent
 - **[separator]** - { String } - separator that is used to concatenate fields [defaults to `'.'`]
 - **[beforeHook]** - { Function(event, context) } - function to be called before any processing is done
@@ -45,7 +46,10 @@ const d2es = require('dynamo2es-lambda');
 
 module.exports.handler = d2es({
   elasticsearch: {
-    hosts: 'your-aws-es-host.amazonaws.com'
+    hosts: 'your-aws-es-host.amazonaws.com',
+    bulk: {
+      refresh: 'wait_for'
+    }
   },
   indexField: ['storeId', 'customerId'],
   type: 'type',
