@@ -18,7 +18,7 @@ const errors = lambdaHandler.errors;
 let sandbox;
 
 function stubESCalls(handler) {
-  return sandbox.stub(aeclient, 'create', () => {
+  return sandbox.stub(aeclient, 'create').callsFake(() => {
     return {
       bulk: handler || (() => Promise.resolve({
         took: 0,

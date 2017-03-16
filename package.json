@@ -37,7 +37,7 @@
     "aws-elasticsearch-client": "^1.0.1",
     "dynamodb-marshaler": "^2.0.0",
     "joi": "^10.2.2",
-    "lambda-handler-as-promised": "^1.2.0",
+    "lambda-handler-as-promised": "^1.2.1",
     "lodash": "^4.17.4"
   },
   "devDependencies": {
@@ -49,9 +49,9 @@
     "eslint-plugin-import": "^2.2.0",
     "eslint-plugin-mocha": "^4.8.0",
     "istanbul": "^0.4.5",
-    "lambda-tester": "^2.8.0",
+    "lambda-tester": "^2.8.1",
     "mocha": "^3.2.0",
-    "sinon": "^1.17.7",
+    "sinon": "^2.0.0",
     "uuid": "^3.0.1"
   }
 }
