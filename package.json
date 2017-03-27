@@ -36,7 +36,7 @@
   "dependencies": {
     "aws-elasticsearch-client": "^1.0.1",
     "dynamodb-marshaler": "^2.0.0",
-    "joi": "^10.2.2",
+    "joi": "^10.3.1",
     "lambda-handler-as-promised": "^1.2.1",
     "lodash": "^4.17.4"
   },
@@ -44,14 +44,14 @@
     "chai": "^3.5.0",
     "chai-subset": "^1.5.0",
     "env-test": "^1.0.0",
-    "eslint": "^3.17.1",
-    "eslint-config-airbnb-base": "^11.1.1",
+    "eslint": "^3.18.0",
+    "eslint-config-airbnb-base": "^11.1.2",
     "eslint-plugin-import": "^2.2.0",
-    "eslint-plugin-mocha": "^4.8.0",
+    "eslint-plugin-mocha": "^4.9.0",
     "istanbul": "^0.4.5",
     "lambda-tester": "^2.8.1",
     "mocha": "^3.2.0",
-    "sinon": "^2.0.0",
+    "sinon": "^2.1.0",
     "uuid": "^3.0.1"
   }
 }
