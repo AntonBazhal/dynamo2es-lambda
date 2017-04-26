@@ -36,6 +36,7 @@ function formatErrorMessage(messages) {
 describe('handler', function() {
 
   before(function() {
+    lambdaTester.checkForResourceLeak(true);
     sandbox = sinon.sandbox.create();
   });
 
