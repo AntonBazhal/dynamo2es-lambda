@@ -32,6 +32,7 @@ $ npm install dynamo2es-lambda
 - **[afterHook]** - { Function(event, context, result, meta) } - function to be called after all the processing is done; `meta` object contains parsed event data, action description and document that was indexed
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
+- **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
 
 > Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
 
@@ -127,3 +128,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 [lambda-handler-as-promised-extensions-url]: https://www.npmjs.com/package/lambda-handler-as-promised#context-extensions
 [npm-url]: https://www.npmjs.org/package/dynamo2es-lambda
 [npm-image]: https://img.shields.io/npm/v/dynamo2es-lambda.svg
+[promise-retry-url]: https://www.npmjs.com/package/promise-retry#promiseretryfn-options
