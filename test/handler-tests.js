@@ -36,6 +36,7 @@ describe('handler', function() {
         elasticsearch: {},
         index: 'foo',
         indexField: 'bar',
+        indexPrefix: 'baz',
         type: 'foo',
         typeField: 'bar'
       };
@@ -44,8 +45,9 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           '"elasticsearch" conflict with forbidden peer "es"',
-          '"value" contains a conflict between exclusive peers [index, indexField]',
-          '"value" contains a conflict between exclusive peers [type, typeField]'
+          '"options" contains a conflict between exclusive peers [index, indexField]',
+          '"options" contains a conflict between exclusive peers [type, typeField]',
+          '"index" conflict with forbidden peer "indexPrefix"'
         ]));
     });
 
@@ -59,6 +61,7 @@ describe('handler', function() {
         separator: 5,
         idField: {},
         indexField: {},
+        indexPrefix: 5,
         typeField: {},
         pickFields: {},
         versionField: {},
@@ -76,12 +79,30 @@ describe('handler', function() {
           'child "separator" fails because ["separator" must be a string]',
           'child "idField" fails because ["idField" must be a string, "idField" must be an array]',
           'child "indexField" fails because ["indexField" must be a string, "indexField" must be an array]',
+          'child "indexPrefix" fails because ["indexPrefix" must be a string]',
           'child "typeField" fails because ["typeField" must be a string, "typeField" must be an array]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
           'child "retryOptions" fails because ["retryOptions" must be an object]',
-          '"value" must contain at least one of [index, indexField]',
-          '"value" must contain at least one of [type, typeField]'
+          '"options" must contain at least one of [index, indexField]',
+          '"options" must contain at least one of [type, typeField]',
+          '"indexPrefix" missing required peer "indexField"'
+        ]));
+    });
+
+    it('should throw when options are invalid (second set)', function() {
+      const testOptions = {
+        elasticsearch: 'foo',
+        index: 1,
+        type: 2
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          'child "elasticsearch" fails because ["elasticsearch" must be an object]',
+          'child "index" fails because ["index" must be a string]',
+          'child "type" fails because ["type" must be a string]'
         ]));
     });
 
@@ -116,22 +137,6 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           'child "es" fails because [child "bulk" fails because [child "body" fails because ["body" is not allowed]]]'
-        ]));
-    });
-
-    it('should throw when options are invalid (second set)', function() {
-      const testOptions = {
-        elasticsearch: 'foo',
-        index: 1,
-        type: 2
-      };
-
-      expect(() => lambdaHandler(testOptions))
-        .to.throw(errors.ValidationError)
-        .with.property('message', formatErrorMessage([
-          'child "elasticsearch" fails because ["elasticsearch" must be an object]',
-          'child "index" fails because ["index" must be a string]',
-          'child "type" fails because ["type" must be a string]'
         ]));
     });
 
@@ -554,6 +559,33 @@ describe('handler', function() {
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.deep.property('body[0].index._index', `${testField1}.${testField2}`);
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+
+    it('should use "indexPrefix" when provided', function() {
+      const testField = uuid.v4();
+      const testIndexPrefix = uuid.v4();
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        keys: { field: testField }
+      });
+
+      const handler = lambdaHandler({
+        indexField: 'field',
+        indexPrefix: testIndexPrefix,
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value)
+            .to.have.deep.property('body[0].index._index', `${testIndexPrefix}${testField}`);
         }))
         .resolves();
 

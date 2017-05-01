@@ -22,7 +22,8 @@ $ npm install dynamo2es-lambda
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
 - **[elasticsearch - alias: es]** - { Object } - Elasticsearch configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
   - **[bulk]** - { Object } - aside from general Elasticsearch configuration, you can use this field to pass additional parameters to [bulk API][bulk-api-url]
-- **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `index`
+- **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; required if `indexPrefix` field is present; can't be used together with `index`
+- **[indexPrefix]** - { String } - static string to be used as a prefix to form index together with `indexField` value
 - **[typeField]** - { String | String[] } - field(s) to be used as an Elasticsearch type; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `type`
 - **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator` [defaults to document's key field(s)]
 - **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
