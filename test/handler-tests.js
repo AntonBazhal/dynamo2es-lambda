@@ -1,7 +1,6 @@
 'use strict';
 
 const _ = require('lodash');
-const aeclient = require('aws-elasticsearch-client');
 const chai = require('chai');
 const chaiSubset = require('chai-subset');
 const lambdaTester = require('lambda-tester');
@@ -15,19 +14,6 @@ chai.use(chaiSubset);
 const expect = chai.expect;
 
 const errors = lambdaHandler.errors;
-let sandbox;
-
-function stubESCalls(handler) {
-  return sandbox.stub(aeclient, 'create').callsFake(() => {
-    return {
-      bulk: handler || (() => Promise.resolve({
-        took: 0,
-        errors: false,
-        items: []
-      }))
-    };
-  });
-}
 
 function formatErrorMessage(messages) {
   return messages.join('. ');
@@ -37,11 +23,6 @@ describe('handler', function() {
 
   before(function() {
     lambdaTester.checkForResourceLeak(true);
-    sandbox = sinon.sandbox.create();
-  });
-
-  afterEach(function() {
-    sandbox.restore();
   });
 
   describe('options validation', function() {
@@ -80,7 +61,8 @@ describe('handler', function() {
         indexField: {},
         typeField: {},
         pickFields: {},
-        versionField: {}
+        versionField: {},
+        retryOptions: 2
       };
 
       expect(() => lambdaHandler(testOptions))
@@ -97,6 +79,7 @@ describe('handler', function() {
           'child "typeField" fails because ["typeField" must be a string, "typeField" must be an array]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
+          'child "retryOptions" fails because ["retryOptions" must be an object]',
           '"value" must contain at least one of [index, indexField]',
           '"value" must contain at least one of [type, typeField]'
         ]));
@@ -169,8 +152,6 @@ describe('handler', function() {
 
   describe('hooks', function() {
     it('should call "beforeHook" when provided', function() {
-      stubESCalls();
-
       let hookCalled = false;
       const testEvent = formatEvent();
 
@@ -186,6 +167,8 @@ describe('handler', function() {
         type: 'type'
       });
 
+      sinon.stub(handler.CLIENT, 'bulk').resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
         .expectResult(() => {
@@ -197,7 +180,6 @@ describe('handler', function() {
       const testResult = {
         meaningOfLife: 42
       };
-      stubESCalls(() => Promise.resolve(testResult));
 
       let hookCalled = false;
       const testItemKeys = { id: uuid.v4() };
@@ -241,15 +223,17 @@ describe('handler', function() {
         type: 'type'
       });
 
+      const stub = sinon.stub(handler.CLIENT, 'bulk').resolves(testResult);
+
       return lambdaTester(handler)
         .event(testEvent)
         .expectResult(() => {
+          expect(stub.called).to.be.true;
           expect(hookCalled).to.be.true;
         });
     });
 
     it('should use return value from "afterHook" when provided', function() {
-      stubESCalls();
       const testEvent = formatEvent();
       const testHookResult = uuid.v4();
 
@@ -261,6 +245,8 @@ describe('handler', function() {
         type: 'type'
       });
 
+      sinon.stub(handler.CLIENT, 'bulk').resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
         .expectResult(result => {
@@ -269,8 +255,6 @@ describe('handler', function() {
     });
 
     it('should call "recordErrorHook" when provided and should not throw', function() {
-      stubESCalls();
-
       let hookCalled = false;
       const testEvent = formatEvent();
 
@@ -297,12 +281,10 @@ describe('handler', function() {
     });
 
     it('should call "errorHook" when provided, return result and should not throw', function() {
-      const testError = new Error('Winter is coming!');
-      stubESCalls(() => Promise.reject(testError));
-
       let hookCalled = false;
       const testResult = uuid.v4();
       const testEvent = formatEvent();
+      const testError = new Error('Winter is coming!');
 
       const handler = lambdaHandler({
         errorHook: (event, context, err) => {
@@ -316,9 +298,12 @@ describe('handler', function() {
         type: 'type'
       });
 
+      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+
       return lambdaTester(handler)
         .event(testEvent)
         .expectResult(result => {
+          expect(stub.called).to.be.true;
           expect(hookCalled).to.be.true;
           expect(result).to.equal(testResult);
         });
@@ -338,35 +323,28 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        const expectedConcat = `${testField1}${testSeparator}${testField2}`;
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.containSubset({
-            _id: expectedConcat,
-            _index: expectedConcat,
-            _type: expectedConcat
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         separator: testSeparator,
         indexField: ['field1', 'field2'],
         typeField: ['field1', 'field2']
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          const expectedConcat = `${testField1}${testSeparator}${testField2}`;
+          return expect(value).to.have.deep.property('body[0].index')
+            .that.containSubset({
+              _id: expectedConcat,
+              _index: expectedConcat,
+              _type: expectedConcat
+            });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should support empty separator', function() {
@@ -380,35 +358,28 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        const expectedConcat = `${testField1}${testField2}`;
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.containSubset({
-            _id: expectedConcat,
-            _index: expectedConcat,
-            _type: expectedConcat
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         separator: '',
         indexField: ['field1', 'field2'],
         typeField: ['field1', 'field2']
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          const expectedConcat = `${testField1}${testField2}`;
+          return expect(value).to.have.deep.property('body[0].index')
+            .that.containSubset({
+              _id: expectedConcat,
+              _index: expectedConcat,
+              _type: expectedConcat
+            });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
   });
 
@@ -423,30 +394,22 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_id', testField);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         idField: 'field',
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._id', testField);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "idField" when provided (multiple fields)', function() {
@@ -461,35 +424,25 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_id', `${testField1}.${testField2}`);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         idField: ['field1', 'field2'],
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._id', `${testField1}.${testField2}`);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should throw when "idField" not found in record', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       const handler = lambdaHandler({
         idField: 'notFoundField',
@@ -517,29 +470,21 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_id', `${testField1}.${testField2}`);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._id', `${testField1}.${testField2}`);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
   });
 
@@ -548,29 +493,21 @@ describe('handler', function() {
       const testIndex = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_index', testIndex);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: testIndex,
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._index', testIndex);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "indexField" when provided (single field)', function() {
@@ -580,29 +517,21 @@ describe('handler', function() {
         keys: { field: testField }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_index', testField);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         indexField: 'field',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._index', testField);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "indexField" when provided (multiple fields)', function() {
@@ -616,34 +545,24 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_index', `${testField1}.${testField2}`);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         indexField: ['field1', 'field2'],
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._index', `${testField1}.${testField2}`);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should throw when "indexField" not found in record', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       const handler = lambdaHandler({
         indexField: 'notFoundField',
@@ -665,29 +584,21 @@ describe('handler', function() {
       const testType = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_type', testType);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: testType
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._type', testType);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "typeField" when provided (single field)', function() {
@@ -697,29 +608,21 @@ describe('handler', function() {
         keys: { field: testField }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_type', testField);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         typeField: 'field'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._type', testField);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "typeField" when provided (multiple fields)', function() {
@@ -733,34 +636,24 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[0])
-          .to.exist
-          .and.to.have.property('index')
-          .that.is.an('object')
-          .and.to.have.property('_type', `${testField1}.${testField2}`);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         typeField: ['field1', 'field2']
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index._type', `${testField1}.${testField2}`);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should throw when "typeField" not found in record', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       const handler = lambdaHandler({
         index: 'index',
@@ -788,29 +681,23 @@ describe('handler', function() {
         new: testDoc
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[1])
-          .to.exist
-          .and.to.be.an('object')
-          .and.to.deep.equal({ field1: testDoc.field1 });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type',
         pickFields: 'field1'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[1]')
+            .that.deep.equals({ field1: testDoc.field1 });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should use "pickFields" when provided (multiple fields)', function() {
@@ -824,32 +711,23 @@ describe('handler', function() {
         new: testDoc
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[1])
-          .to.exist
-          .and.to.be.an('object')
-          .and.to.deep.equal({
-            field1: testDoc.field1,
-            field2: testDoc.field2
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type',
         pickFields: ['field1', 'field2']
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[1]')
+            .that.deep.equals({ field1: testDoc.field1, field2: testDoc.field2 });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should pick all the fields when "pickFields" not provided', function() {
@@ -865,28 +743,22 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body');
-        expect(params.body[1])
-          .to.exist
-          .and.to.be.an('object')
-          .and.to.deep.equal(testDoc);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[1]')
+            .that.deep.equals(testDoc);
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
   });
 
@@ -904,34 +776,26 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.containSubset({
-            version: testDoc.field2,
-            versionType: 'external'
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { version: testDoc.field2, versionType: 'external' } }
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should support 0 version', function() {
@@ -947,34 +811,26 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.containSubset({
-            version: testDoc.field2,
-            versionType: 'external'
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { version: testDoc.field2, versionType: 'external' } }
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should not set "version" and "versionType" fields when "versionField" is not provided', function() {
@@ -989,38 +845,25 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index');
-
-        const actionDescription = params.body[0].index;
-        expect(actionDescription).not.to.have.property('version');
-        expect(actionDescription).not.to.have.property('versionType');
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index')
+            .that.not.have.any.keys('version', 'versionType');
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should throw when "versionField" not found in record', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       const handler = lambdaHandler({
         index: 'index',
@@ -1038,8 +881,6 @@ describe('handler', function() {
     });
 
     it('should throw when version is invalid', function() {
-      stubESCalls();
-
       const testEvent = formatEvent({
         name: 'INSERT',
         new: {
@@ -1078,41 +919,31 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(1);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('delete')
-          .that.containSubset({
-            version: testDoc.field2 + 1,
-            versionType: 'external'
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { delete: { version: testDoc.field2 + 1, versionType: 'external' } }
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
   });
 
   describe('event validation', function() {
     it('should throw when invalid event received', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       delete testEvent.Records[0].eventName;
       delete testEvent.Records[0].dynamodb;
@@ -1133,8 +964,6 @@ describe('handler', function() {
     });
 
     it('should call errorHook and not throw when invalid event received and errorHook passed', function() {
-      stubESCalls();
-
       let hookCalled = false;
 
       const testEvent = formatEvent();
@@ -1157,8 +986,6 @@ describe('handler', function() {
     });
 
     it('should not throw when event has unknown fields', function() {
-      stubESCalls();
-
       const testEvent = formatEvent();
       testEvent.junk = 'junk';
       testEvent.Records[0].junk = 'junk';
@@ -1168,6 +995,8 @@ describe('handler', function() {
         index: 'index',
         type: 'type'
       });
+
+      sinon.stub(handler.CLIENT, 'bulk').resolves();
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -1189,37 +1018,26 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.containSubset({
-            _index: 'index',
-            _type: 'type',
-            _id: testDoc.field1
-          });
-        expect(params.body[1])
-          .to.be.an('object')
-          .and.to.deep.equal(testDoc);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { _index: 'index', _type: 'type', _id: testDoc.field1 } },
+              testDoc
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should support "MODIFY" event', function() {
@@ -1235,37 +1053,26 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.containSubset({
-            _index: 'index',
-            _type: 'type',
-            _id: testDoc.field1
-          });
-        expect(params.body[1])
-          .to.be.an('object')
-          .that.deep.equals(testDoc);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { _index: 'index', _type: 'type', _id: testDoc.field1 } },
+              testDoc
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should support "REMOVE" event', function() {
@@ -1281,39 +1088,28 @@ describe('handler', function() {
         }
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(1);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('delete')
-          .that.containSubset({
-            _index: 'index',
-            _type: 'type',
-            _id: testDoc.field1
-          });
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { delete: { _index: 'index', _type: 'type', _id: testDoc.field1 } }
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should throw when unknown event name found', function() {
-      stubESCalls();
-
       const testEvent = formatEvent({
         name: 'UNKNOWN'
       });
@@ -1333,8 +1129,6 @@ describe('handler', function() {
     });
 
     it('should call recordErrorHook and not throw when unknown event name found and recordErrorHook passed', function() {
-      stubESCalls();
-
       let handlerCalled = false;
       const testEvent = formatEvent({
         name: 'UNKNOWN'
@@ -1373,33 +1167,26 @@ describe('handler', function() {
         newImage: testDoc
       });
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(2);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.has.property('_id', testDoc.field);
-        expect(params.body[1])
-          .to.be.an('object')
-          .and.to.deep.equal(testDoc);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { _id: testDoc.field } },
+              testDoc
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
 
     it('should support multiple events', function() {
@@ -1418,40 +1205,28 @@ describe('handler', function() {
         }
       ]);
 
-      const stub = stubESCalls(params => {
-        expect(params)
-          .to.exist
-          .and.to.have.property('body')
-          .that.is.an('array')
-          .with.lengthOf(4);
-        expect(params.body[0])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.has.property('_id', testDoc1.field);
-        expect(params.body[1])
-          .to.be.an('object')
-          .and.to.deep.equal(testDoc1);
-        expect(params.body[2])
-          .to.be.an('object')
-          .and.to.have.property('index')
-          .that.has.property('_id', testDoc2.field);
-        expect(params.body[3])
-          .to.be.an('object')
-          .that.deep.equals(testDoc2);
-
-        return Promise.resolve();
-      });
-
       const handler = lambdaHandler({
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { _id: testDoc1.field } },
+              testDoc1,
+              { index: { _id: testDoc2.field } },
+              testDoc2
+            ]
+          });
+        }))
+        .resolves();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
-        });
+        .expectResult(() => mock.verify());
     });
   });
 
@@ -1463,8 +1238,17 @@ describe('handler', function() {
         refresh: 'true'
       };
 
-      const stub = stubESCalls(params => {
-        expect(params).to.deep.equal({
+      const handler = lambdaHandler({
+        elasticsearch: {
+          bulk: testBulkOptions
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs({
           body: [
             {
               index: {
@@ -1476,23 +1260,55 @@ describe('handler', function() {
             testKeys
           ],
           refresh: testBulkOptions.refresh
-        });
+        })
+        .resolves();
 
-        return Promise.resolve();
-      });
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+  });
+
+  describe('retryOptions', function() {
+    it('should not retry on error when retryOptions is not passed', function() {
+      const testEvent = formatEvent();
+      const testError = new Error('indexing error');
 
       const handler = lambdaHandler({
-        elasticsearch: {
-          bulk: testBulkOptions
-        },
         index: 'index',
         type: 'type'
       });
 
+      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectResult(() => {
-          expect(stub.called).to.be.true;
+        .expectError(err => {
+          expect(stub.calledOnce).to.be.true;
+          expect(err).to.deep.equal(testError);
+        });
+    });
+
+    it('should retry on error specified number of times when retryOptions is passed', function() {
+      const testEvent = formatEvent();
+      const testError = new Error('indexing error');
+      const retryCount = 2;
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        retryOptions: {
+          retries: retryCount
+        }
+      });
+
+      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(stub.callCount).to.be.equal(retryCount + 1);
+          expect(err).to.deep.equal(testError);
         });
     });
   });
