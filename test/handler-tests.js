@@ -83,10 +83,7 @@ describe('handler', function() {
           'child "typeField" fails because ["typeField" must be a string, "typeField" must be an array]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
-          'child "retryOptions" fails because ["retryOptions" must be an object]',
-          '"options" must contain at least one of [index, indexField]',
-          '"options" must contain at least one of [type, typeField]',
-          '"indexPrefix" missing required peer "indexField"'
+          'child "retryOptions" fails because ["retryOptions" must be an object]'
         ]));
     });
 
@@ -103,6 +100,20 @@ describe('handler', function() {
           'child "elasticsearch" fails because ["elasticsearch" must be an object]',
           'child "index" fails because ["index" must be a string]',
           'child "type" fails because ["type" must be a string]'
+        ]));
+    });
+
+    it('should throw when required options are missing', function() {
+      const testOptions = {
+        indexPrefix: 'foo'
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          '"options" must contain at least one of [index, indexField]',
+          '"options" must contain at least one of [type, typeField]',
+          '"indexPrefix" missing required peer "indexField"'
         ]));
     });
 
