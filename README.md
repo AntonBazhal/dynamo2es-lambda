@@ -27,6 +27,7 @@ $ npm install dynamo2es-lambda
 - **[typeField]** - { String | String[] } - field(s) to be used as an Elasticsearch type; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `type`
 - **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator` [defaults to document's key field(s)]
 - **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
+- **[parentField]** - { String } - field to be used as a [parent id][elasticsearch-parent-child-url] [no parent by default]
 - **[pickFields]** - { String | String[] } - by default, the whole document is sent to Elasticsearch for indexing; if this option is provided, only field(s) specified would be sent
 - **[separator]** - { String } - separator that is used to concatenate fields [defaults to `'.'`]
 - **[beforeHook]** - { Function(event, context) } - function to be called before any processing is done
@@ -125,6 +126,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 [devdependencies-image]: https://david-dm.org/antonbazhal/dynamo2es-lambda/dev-status.svg
 [dynamodb-streams-url]: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html
 [elasticsearch-versioning-url]: https://www.elastic.co/blog/elasticsearch-versioning-support
+[elasticsearch-parent-child-url]: https://www.elastic.co/guide/en/elasticsearch/guide/current/parent-child.html
 [lambda-handler-as-promised-url]: https://www.npmjs.com/package/lambda-handler-as-promised
 [lambda-handler-as-promised-extensions-url]: https://www.npmjs.com/package/lambda-handler-as-promised#context-extensions
 [npm-url]: https://www.npmjs.org/package/dynamo2es-lambda
