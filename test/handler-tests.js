@@ -63,6 +63,7 @@ describe('handler', function() {
         indexField: {},
         indexPrefix: 5,
         typeField: {},
+        parentField: {},
         pickFields: {},
         versionField: {},
         retryOptions: 2
@@ -81,6 +82,7 @@ describe('handler', function() {
           'child "indexField" fails because ["indexField" must be a string, "indexField" must be an array]',
           'child "indexPrefix" fails because ["indexPrefix" must be a string]',
           'child "typeField" fails because ["typeField" must be a string, "typeField" must be an array]',
+          'child "parentField" fails because ["parentField" must be a string]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
           'child "retryOptions" fails because ["retryOptions" must be an object]'
@@ -709,6 +711,53 @@ describe('handler', function() {
           expect(err)
           .to.be.an.instanceOf(errors.FieldNotFoundError)
           .with.property('message', '"notFoundField" field not found in record');
+        });
+    });
+  });
+
+  describe('parentField', function() {
+    it('should use "parentField" when provided', function() {
+      const testField = uuid.v4();
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: {
+          field: testField,
+          otherField: uuid.v4()
+        }
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        parentField: 'field'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[0].index.parent', testField);
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+
+    it('should throw when "parentField" not found in record', function() {
+      const testEvent = formatEvent();
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        parentField: 'notFoundField'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(err)
+            .to.be.an.instanceOf(errors.FieldNotFoundError)
+            .with.property('message', '"notFoundField" field not found in record');
         });
     });
   });
