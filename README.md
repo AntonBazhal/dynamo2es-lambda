@@ -35,6 +35,7 @@ $ npm install dynamo2es-lambda
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 - **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
+- **[processRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record, must return processed object; useful for reshaping document before sending it to Elasticsearch
 
 > Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
 
@@ -67,7 +68,10 @@ module.exports.handler = d2es({
     }
   },
   errorHook: (event, context, err) => context.log.error({ err }),
-  recordErrorHook: (event, context, err) => context.log.error({ err })
+  recordErrorHook: (event, context, err) => context.log.error({ err }),
+  processRecordHook: (record) => {
+    return Object.assign({}, record, {fullName: `${record.firstName} ${record.lastName}`});
+  }
 });
 ```
 
