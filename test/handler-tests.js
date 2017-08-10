@@ -326,6 +326,68 @@ describe('handler', function() {
           expect(result).to.equal(testResult);
         });
     });
+
+    it('should call "transformRecordHook" when provided', function() {
+      let hookCalled = false;
+      const originalRecord = {
+        someProperty: 'someValue'
+      };
+      const transformedRecord = {
+        someProperty: 'otherValue'
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: originalRecord
+      });
+
+      const handler = lambdaHandler({
+        transformRecordHook: record => {
+          hookCalled = true;
+          expect(record).to.have.property('someProperty').that.equals(originalRecord.someProperty);
+          return transformedRecord;
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.deep.property('body[1]')
+            .that.deep.equals({ someProperty: transformedRecord.someProperty });
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          expect(hookCalled).to.be.true;
+          mock.verify();
+        });
+    });
+
+    it('should throw when "transformRecordHook" does not return object', function() {
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: {
+          someProperty: 'someValue'
+        }
+      });
+
+      const handler = lambdaHandler({
+        transformRecordHook: record => {
+          expect(record).to.be.an('object');
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(err).to.have.property('message', 'transformRecordHook must return an object');
+        });
+    });
   });
 
   describe('separator', function() {
