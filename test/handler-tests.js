@@ -58,6 +58,7 @@ describe('handler', function() {
         afterHook: {},
         recordErrorHook: {},
         errorHook: {},
+        transformRecordHook: {},
         separator: 5,
         idField: {},
         indexField: {},
@@ -77,6 +78,7 @@ describe('handler', function() {
           'child "afterHook" fails because ["afterHook" must be a Function]',
           'child "recordErrorHook" fails because ["recordErrorHook" must be a Function]',
           'child "errorHook" fails because ["errorHook" must be a Function]',
+          'child "transformRecordHook" fails because ["transformRecordHook" must be a Function]',
           'child "separator" fails because ["separator" must be a string]',
           'child "idField" fails because ["idField" must be a string, "idField" must be an array]',
           'child "indexField" fails because ["indexField" must be a string, "indexField" must be an array]',
@@ -353,8 +355,9 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[1]')
-            .that.deep.equals({ someProperty: transformedRecord.someProperty });
+          return expect(value)
+            .to.have.deep.property('body[1]')
+            .that.deep.equals(transformedRecord);
         }))
         .resolves();
 
