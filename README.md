@@ -69,7 +69,7 @@ module.exports.handler = d2es({
   },
   errorHook: (event, context, err) => context.log.error({ err }),
   recordErrorHook: (event, context, err) => context.log.error({ err }),
-  processRecordHook: (record) => {
+  transformRecordHook: (record) => {
     return Object.assign({}, record, {fullName: `${record.firstName} ${record.lastName}`});
   }
 });
