@@ -59,7 +59,7 @@ module.exports.handler = d2es({
   type: 'type',
   idField: 'orderId',
   versionField: '_version',
-  separator: '-'
+  separator: '-',
   beforeHook: (event, context) => context.log.info({ event }),
   afterHook: (event, context, result) => {
     context.log.info({ result });
