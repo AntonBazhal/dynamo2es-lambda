@@ -36,6 +36,7 @@ $ npm install dynamo2es-lambda
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 - **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
 - **[transformRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record, must return processed object; useful for reshaping document before sending it to Elasticsearch
+- **[upsert]** - { Boolean } - Replaces index with update with partial document and uses upsert operation.
 
 > Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
 
