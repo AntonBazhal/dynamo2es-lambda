@@ -1469,4 +1469,35 @@ describe('handler', function() {
         });
     });
   });
+
+  describe('Upsert', function() {
+    const testDoc = { field: uuid.v4() };
+    const testEvent = formatEvent({
+      name: 'INSERT',
+      keys: { field: testDoc.field },
+      newImage: testDoc
+    });
+
+    const handler = lambdaHandler({
+      index: 'index',
+      type: 'type',
+      upsert: true
+    });
+
+    const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      .once()
+      .withExactArgs(sinon.match(value => {
+        return expect(value).to.containSubset({
+          body: [
+            { update: { _id: testDoc.field } },
+            testDoc
+          ]
+        });
+      }))
+      .resolves();
+
+    return lambdaTester(handler)
+      .event(testEvent)
+      .expectResult(() => mock.verify());
+  });
 });
