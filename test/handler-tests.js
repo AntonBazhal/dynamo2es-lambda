@@ -67,7 +67,8 @@ describe('handler', function() {
         parentField: {},
         pickFields: {},
         versionField: {},
-        retryOptions: 2
+        retryOptions: 2,
+        upsert: ''
       };
 
       expect(() => lambdaHandler(testOptions))
@@ -87,7 +88,8 @@ describe('handler', function() {
           'child "parentField" fails because ["parentField" must be a string]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
-          'child "retryOptions" fails because ["retryOptions" must be an object]'
+          'child "retryOptions" fails because ["retryOptions" must be an object]',
+          'child "upsert" fails because ["upsert" must be a boolean]'
         ]));
     });
 
