@@ -11,9 +11,6 @@ extends:
 parserOptions:
     sourceType: "scripts"
 
-ecmaFeatures:
-    generators: true
-
 rules:
     arrow-body-style: 0
     arrow-parens: [2, "as-needed"]
@@ -24,5 +21,7 @@ rules:
     no-plusplus: 0
     no-tabs: 0
     no-underscore-dangle: 0
+    operator-linebreak: 0
     padded-blocks: 0
+    prefer-destructuring: 0
     space-before-function-paren: 0
