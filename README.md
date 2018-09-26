@@ -35,9 +35,7 @@ $ npm install dynamo2es-lambda
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 - **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
-- **[transformRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record, must return processed object; useful for reshaping document before sending it to Elasticsearch
-
-> Note: hooks provide convenient place to add custom logic, but they don't change workflow (except error hooks where you can define if error should be thrown)
+- **[transformRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record; record is omitted if function does not return result; useful for reshaping/excluding document before sending it to Elasticsearch
 
 > Note: `context` object, available in hooks, includes all the [context extensions provided by `lambda-handler-as-promised`][lambda-handler-as-promised-url]
 
@@ -108,7 +106,7 @@ module.exports.handler = d2es({
 
 The MIT License (MIT)
 
-Copyright (c) 2016-2017 Anton Bazhal
+Copyright (c) 2016-2018 Anton Bazhal
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

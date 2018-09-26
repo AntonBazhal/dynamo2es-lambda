@@ -1,0 +1,57 @@
+version: 2.0
+
+references:
+
+  workspace_root: &workspace_root
+    ./
+
+  node_container: &node_container
+    docker:
+      - image: circleci/node:6
+
+  attach_workspace: &attach_workspace
+    attach_workspace:
+      at: *workspace_root
+
+  run_on_master: &run_on_master
+    filters:
+      branches:
+        only: master
+
+jobs:
+  dependencies:
+    <<: *node_container
+    steps:
+      - checkout
+      - run: npm install
+      - persist_to_workspace:
+          root: *workspace_root
+          paths:
+            - node_modules
+  test:
+    <<: *node_container
+    steps:
+      - checkout
+      - *attach_workspace
+      - run: npm run test
+      - run: sudo npm install -g coveralls
+      - run: cat ./coverage/lcov.info | coveralls
+  publish:
+    <<: *node_container
+    steps:
+      - checkout
+      - *attach_workspace
+      - run: sudo npm install -g publish
+      - run: publish
+
+workflows:
+  version: 2
+  default:
+    jobs:
+      - dependencies
+      - test:
+          requires: [ 'dependencies' ]
+      - publish:
+          context: ci-publish
+          requires: [ 'dependencies', 'test' ]
+          <<: *run_on_master

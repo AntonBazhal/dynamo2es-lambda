@@ -3,7 +3,7 @@
 const _ = require('lodash');
 const chai = require('chai');
 const chaiSubset = require('chai-subset');
-const lambdaTester = require('lambda-tester');
+const lambdaTester = require('lambda-tester').noVersionCheck();
 const sinon = require('sinon');
 const uuid = require('uuid');
 
@@ -356,7 +356,7 @@ describe('handler', function() {
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value)
-            .to.have.deep.property('body[1]')
+            .to.have.nested.property('body[1]')
             .that.deep.equals(transformedRecord);
         }))
         .resolves();
@@ -369,7 +369,8 @@ describe('handler', function() {
         });
     });
 
-    it('should throw when "transformRecordHook" does not return object', function() {
+    it('should skip record when "transformRecordHook" does not return object', function() {
+      let hookCalled = false;
       const testEvent = formatEvent({
         name: 'INSERT',
         new: {
@@ -378,17 +379,24 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
-        transformRecordHook: record => {
-          expect(record).to.be.an('object');
+        transformRecordHook: () => {
+          hookCalled = true;
+          return null;
+        },
+        afterHook: (event, context, result, meta) => {
+          expect(meta).to.deep.equal([]);
         },
         index: 'index',
         type: 'type'
       });
 
+      const mock = sinon.mock(handler.CLIENT).expects('bulk').never();
+
       return lambdaTester(handler)
         .event(testEvent)
-        .expectError(err => {
-          expect(err).to.have.property('message', 'transformRecordHook must return an object');
+        .expectResult(() => {
+          expect(hookCalled).to.be.true;
+          mock.verify();
         });
     });
   });
@@ -416,7 +424,7 @@ describe('handler', function() {
         .once()
         .withExactArgs(sinon.match(value => {
           const expectedConcat = `${testField1}${testSeparator}${testField2}`;
-          return expect(value).to.have.deep.property('body[0].index')
+          return expect(value).to.have.nested.property('body[0].index')
             .that.containSubset({
               _id: expectedConcat,
               _index: expectedConcat,
@@ -451,7 +459,7 @@ describe('handler', function() {
         .once()
         .withExactArgs(sinon.match(value => {
           const expectedConcat = `${testField1}${testField2}`;
-          return expect(value).to.have.deep.property('body[0].index')
+          return expect(value).to.have.nested.property('body[0].index')
             .that.containSubset({
               _id: expectedConcat,
               _index: expectedConcat,
@@ -486,7 +494,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._id', testField);
+          return expect(value).to.have.nested.property('body[0].index._id', testField);
         }))
         .resolves();
 
@@ -516,7 +524,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._id', `${testField1}.${testField2}`);
+          return expect(value).to.have.nested.property('body[0].index._id', `${testField1}.${testField2}`);
         }))
         .resolves();
 
@@ -561,7 +569,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._id', `${testField1}.${testField2}`);
+          return expect(value).to.have.nested.property('body[0].index._id', `${testField1}.${testField2}`);
         }))
         .resolves();
 
@@ -584,7 +592,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._index', testIndex);
+          return expect(value).to.have.nested.property('body[0].index._index', testIndex);
         }))
         .resolves();
 
@@ -608,7 +616,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._index', testField);
+          return expect(value).to.have.nested.property('body[0].index._index', testField);
         }))
         .resolves();
 
@@ -636,7 +644,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._index', `${testField1}.${testField2}`);
+          return expect(value).to.have.nested.property('body[0].index._index', `${testField1}.${testField2}`);
         }))
         .resolves();
 
@@ -663,7 +671,7 @@ describe('handler', function() {
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value)
-            .to.have.deep.property('body[0].index._index', `${testIndexPrefix}${testField}`);
+            .to.have.nested.property('body[0].index._index', `${testIndexPrefix}${testField}`);
         }))
         .resolves();
 
@@ -702,7 +710,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._type', testType);
+          return expect(value).to.have.nested.property('body[0].index._type', testType);
         }))
         .resolves();
 
@@ -726,7 +734,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._type', testField);
+          return expect(value).to.have.nested.property('body[0].index._type', testField);
         }))
         .resolves();
 
@@ -754,7 +762,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index._type', `${testField1}.${testField2}`);
+          return expect(value).to.have.nested.property('body[0].index._type', `${testField1}.${testField2}`);
         }))
         .resolves();
 
@@ -774,8 +782,8 @@ describe('handler', function() {
         .event(testEvent)
         .expectError(err => {
           expect(err)
-          .to.be.an.instanceOf(errors.FieldNotFoundError)
-          .with.property('message', '"notFoundField" field not found in record');
+            .to.be.an.instanceOf(errors.FieldNotFoundError)
+            .with.property('message', '"notFoundField" field not found in record');
         });
     });
   });
@@ -800,7 +808,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index.parent', testField);
+          return expect(value).to.have.nested.property('body[0].index.parent', testField);
         }))
         .resolves();
 
@@ -847,7 +855,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[1]')
+          return expect(value).to.have.nested.property('body[1]')
             .that.deep.equals({ field1: testDoc.field1 });
         }))
         .resolves();
@@ -877,7 +885,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[1]')
+          return expect(value).to.have.nested.property('body[1]')
             .that.deep.equals({ field1: testDoc.field1, field2: testDoc.field2 });
         }))
         .resolves();
@@ -908,7 +916,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[1]')
+          return expect(value).to.have.nested.property('body[1]')
             .that.deep.equals(testDoc);
         }))
         .resolves();
@@ -1010,7 +1018,7 @@ describe('handler', function() {
       const mock = sinon.mock(handler.CLIENT).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
-          return expect(value).to.have.deep.property('body[0].index')
+          return expect(value).to.have.nested.property('body[0].index')
             .that.not.have.any.keys('version', 'versionType');
         }))
         .resolves();
@@ -1113,10 +1121,11 @@ describe('handler', function() {
       return lambdaTester(handler)
         .event(testEvent)
         .expectError(err => {
-          expect(err).to.be.an.instanceOf(errors.ValidationError)
-          .with.property('message', 'child "Records" fails because ["Records" at ' +
-            'position 0 fails because [child "eventName" fails because ["eventName" ' +
-            'is required], child "dynamodb" fails because ["dynamodb" is required]]]');
+          expect(err)
+            .to.be.an.instanceOf(errors.ValidationError)
+            .with.property('message', 'child "Records" fails because ["Records" at ' +
+              'position 0 fails because [child "eventName" fails because ["eventName" ' +
+              'is required], child "dynamodb" fails because ["dynamodb" is required]]]');
         });
     });
 
