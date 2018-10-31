@@ -1,6 +1,6 @@
 'use strict';
 
-const marshaler = require('dynamodb-marshaler');
+const AWS = require('aws-sdk');
 const uuid = require('uuid');
 
 module.exports = function(records) {
@@ -23,9 +23,9 @@ module.exports = function(records) {
         eventName,
         eventSource: 'aws:dynamodb',
         dynamodb: {
-          Keys: marshaler.toDDB(keys),
-          NewImage: newImage ? marshaler.toDDB(newImage) : undefined,
-          OldImage: oldImage ? marshaler.toDDB(oldImage) : undefined,
+          Keys: AWS.DynamoDB.Converter.marshall(keys),
+          NewImage: newImage ? AWS.DynamoDB.Converter.marshall(newImage) : undefined,
+          OldImage: oldImage ? AWS.DynamoDB.Converter.marshall(oldImage) : undefined,
           StreamViewType: 'NEW_AND_OLD_IMAGES'
         }
       };
