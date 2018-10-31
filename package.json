@@ -1,6 +1,6 @@
 {
   "name": "dynamo2es-lambda",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Configurable AWS Lambda handler to index documents from DynamoDB Streams in Amazon Elasticsearch",
   "repository": {
     "type": "git",
@@ -34,10 +34,11 @@
   },
   "license": "MIT",
   "dependencies": {
+    "alpha-lambda": "^1.1.0",
+    "alpha-lambda-bunyan": "^1.1.0",
     "aws-elasticsearch-client": "^1.2.1",
-    "dynamodb-marshaler": "^2.0.0",
+    "aws-sdk": "^2.345.0",
     "joi": "^13.6.0",
-    "lambda-handler-as-promised": "^1.2.2",
     "lodash": "^4.17.11",
     "promise-retry": "^1.1.1"
   },

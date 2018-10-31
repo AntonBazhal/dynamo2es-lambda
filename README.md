@@ -16,7 +16,7 @@ $ npm install dynamo2es-lambda
 
 ## Usage
 
-`dynamo2es-lambda` takes `options` object and returns [AWS Lambda][aws-lambda-url] handler (using [lambda-handler-as-promised][lambda-handler-as-promised-url]) that is ready to be connected to any [DynamoDB Stream][dynamodb-streams-url]. `options` object supports the following configuration options:
+`dynamo2es-lambda` takes `options` object and returns [AWS Lambda][aws-lambda-url] handler (using [alpha-lambda][alpha-lambda-url]) that is ready to be connected to any [DynamoDB Stream][dynamodb-streams-url]. `options` object supports the following configuration options:
 
 - **index** - { String } - Elasticsearch index to be used for all the documents; optional if `indexField` is provided
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
@@ -37,7 +37,7 @@ $ npm install dynamo2es-lambda
 - **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
 - **[transformRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record; record is omitted if function does not return result; useful for reshaping/excluding document before sending it to Elasticsearch
 
-> Note: `context` object, available in hooks, includes all the [context extensions provided by `lambda-handler-as-promised`][lambda-handler-as-promised-url]
+> Note: `context` object, available in hooks, includes [`bunyan` context extension provided by `alpha-lambda-bunyan`][alpha-lambda-bunyan-url]
 
 > Note: `afterHook` and `errorHook` support asynchronous operations when logic is wrapped into Promise
 
@@ -114,6 +114,8 @@ The above copyright notice and this permission notice shall be included in all c
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+[alpha-lambda-bunyan-url-url]: https://www.npmjs.com/package/alpha-lambda-bunyan
+[alpha-lambda-url]: https://www.npmjs.com/package/alpha-lambda
 [aws-elasticsearch-client-url]: https://www.npmjs.com/package/aws-elasticsearch-client
 [aws-elasticsearch-url]: https://aws.amazon.com/elasticsearch-service/
 [aws-lambda-url]: https://aws.amazon.com/lambda/details/
@@ -129,8 +131,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 [dynamodb-streams-url]: http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html
 [elasticsearch-versioning-url]: https://www.elastic.co/blog/elasticsearch-versioning-support
 [elasticsearch-parent-child-url]: https://www.elastic.co/guide/en/elasticsearch/guide/current/parent-child.html
-[lambda-handler-as-promised-url]: https://www.npmjs.com/package/lambda-handler-as-promised
-[lambda-handler-as-promised-extensions-url]: https://www.npmjs.com/package/lambda-handler-as-promised#context-extensions
 [npm-url]: https://www.npmjs.org/package/dynamo2es-lambda
 [npm-image]: https://img.shields.io/npm/v/dynamo2es-lambda.svg
 [promise-retry-url]: https://www.npmjs.com/package/promise-retry#promiseretryfn-options
