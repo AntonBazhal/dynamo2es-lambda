@@ -334,18 +334,23 @@ describe('handler', function() {
       const originalRecord = {
         someProperty: 'someValue'
       };
+      const oldRecord = {
+        someProperty: 'someOldValue'
+      };
       const transformedRecord = {
         someProperty: 'otherValue'
       };
       const testEvent = formatEvent({
-        name: 'INSERT',
-        new: originalRecord
+        name: 'MODIFY',
+        new: originalRecord,
+        old: oldRecord
       });
 
       const handler = lambdaHandler({
-        transformRecordHook: record => {
+        transformRecordHook: (record, old) => {
           hookCalled = true;
           expect(record).to.have.property('someProperty').that.equals(originalRecord.someProperty);
+          expect(old).to.have.property('someProperty').that.equals(oldRecord.someProperty);
           return transformedRecord;
         },
         index: 'index',
