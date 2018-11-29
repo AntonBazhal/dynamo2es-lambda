@@ -35,7 +35,7 @@ $ npm install dynamo2es-lambda
 - **[recordErrorHook]** - { Function(event, context, error) } - function to be called when error occurs while processing specific record; if hook is not provided, error is thrown and processing stops
 - **[errorHook]** - { Function(event, context, error) } - function to be called when error occurs; if hook is not provided, error is thrown
 - **[retryOptions]** - { Object } - retry configuration in case Elasticsearch indexing fails ([options description can be found here][promise-retry-url]) [is not retried by default]
-- **[transformRecordHook]** - { Function(record) } - optional function to perform custom data processing; accepts single record; record is omitted if function does not return result; useful for reshaping/excluding document before sending it to Elasticsearch
+- **[transformRecordHook]** - { Function(record, old) } - optional function to perform custom data processing; accepts single record and old image; record is omitted if function does not return result; useful for reshaping/excluding document before sending it to Elasticsearch
 
 > Note: `context` object, available in hooks, includes [`bunyan` context extension provided by `alpha-lambda-bunyan`][alpha-lambda-bunyan-url]
 
@@ -67,7 +67,7 @@ module.exports.handler = d2es({
   },
   errorHook: (event, context, err) => context.log.error({ err }),
   recordErrorHook: (event, context, err) => context.log.error({ err }),
-  transformRecordHook: (record) => {
+  transformRecordHook: (record, old) => {
     return Object.assign({}, record, {fullName: `${record.firstName} ${record.lastName}`});
   }
 });
