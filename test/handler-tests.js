@@ -34,6 +34,8 @@ describe('handler', function() {
       const testOptions = {
         es: {},
         elasticsearch: {},
+        idField: 'id',
+        idResolver: () => {},
         index: 'foo',
         indexField: 'bar',
         indexPrefix: 'baz',
@@ -45,6 +47,7 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           '"elasticsearch" conflict with forbidden peer "es"',
+          '"options" contains a conflict between optional exclusive peers [idField, idResolver]',
           '"options" contains a conflict between exclusive peers [index, indexField]',
           '"options" contains a conflict between exclusive peers [type, typeField]',
           '"index" conflict with forbidden peer "indexPrefix"'
@@ -94,6 +97,7 @@ describe('handler', function() {
     it('should throw when options are invalid (second set)', function() {
       const testOptions = {
         elasticsearch: 'foo',
+        idResolver: 1,
         index: 1,
         type: 2
       };
@@ -102,6 +106,7 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           'child "elasticsearch" fails because ["elasticsearch" must be an object]',
+          'child "idResolver" fails because ["idResolver" must be a Function]',
           'child "index" fails because ["index" must be a string]',
           'child "type" fails because ["type" must be a string]'
         ]));
@@ -480,6 +485,38 @@ describe('handler', function() {
   });
 
   describe('id', function() {
+    it('should use "idResolver" when provided', function() {
+      const testField = uuid.v4();
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        keys: {
+          field: testField,
+          otherField: uuid.v4()
+        },
+        new: {
+          field: testField,
+          otherField: uuid.v4()
+        }
+      });
+
+      const handler = lambdaHandler({
+        idResolver: record => record.field,
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.nested.property('body[0].index._id', testField);
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+
     it('should use "idField" when provided (single field)', function() {
       const testField = uuid.v4();
       const testEvent = formatEvent({
