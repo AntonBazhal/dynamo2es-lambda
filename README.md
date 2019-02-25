@@ -25,7 +25,8 @@ $ npm install dynamo2es-lambda
 - **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; required if `indexPrefix` field is present; can't be used together with `index`
 - **[indexPrefix]** - { String } - static string to be used as a prefix to form index together with `indexField` value
 - **[typeField]** - { String | String[] } - field(s) to be used as an Elasticsearch type; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `type`
-- **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator` [defaults to document's key field(s)]
+- **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `idResolver` [defaults to document's key field(s)]
+- **[idResolver]** - { Function(record, old) } - optional function to format an Elasticsearch id; can't be used together with `idField`
 - **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
 - **[parentField]** - { String } - field to be used as a [parent id][elasticsearch-parent-child-url] [no parent by default]
 - **[pickFields]** - { String | String[] } - by default, the whole document is sent to Elasticsearch for indexing; if this option is provided, only field(s) specified would be sent
