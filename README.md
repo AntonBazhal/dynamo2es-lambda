@@ -28,6 +28,7 @@ $ npm install dynamo2es-lambda
 - **[idField]** - { String | String[] } - field(s) to be used as an Elasticsearch id; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `idResolver` [defaults to document's key field(s)]
 - **[idResolver]** - { Function(record, old) } - optional function to format an Elasticsearch id; can't be used together with `idField`
 - **[versionField]** - { String } - field to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url] [by default no version check is performed]
+- **[versionResolver]** - { Function(record, old) } - optional function to resolve a value to be used as an [external version for Elasticsearch document][elasticsearch-versioning-url]
 - **[parentField]** - { String } - field to be used as a [parent id][elasticsearch-parent-child-url] [no parent by default]
 - **[pickFields]** - { String | String[] } - by default, the whole document is sent to Elasticsearch for indexing; if this option is provided, only field(s) specified would be sent
 - **[separator]** - { String } - separator that is used to concatenate fields [defaults to `'.'`]

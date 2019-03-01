@@ -99,7 +99,8 @@ describe('handler', function() {
         elasticsearch: 'foo',
         idResolver: 1,
         index: 1,
-        type: 2
+        type: 2,
+        versionResolver: 3,
       };
 
       expect(() => lambdaHandler(testOptions))
@@ -108,7 +109,8 @@ describe('handler', function() {
           'child "elasticsearch" fails because ["elasticsearch" must be an object]',
           'child "idResolver" fails because ["idResolver" must be a Function]',
           'child "index" fails because ["index" must be a string]',
-          'child "type" fails because ["type" must be a string]'
+          'child "type" fails because ["type" must be a string]',
+          'child "versionResolver" fails because ["versionResolver" must be a Function]',
         ]));
     });
 
@@ -969,7 +971,7 @@ describe('handler', function() {
     });
   });
 
-  describe('versionField', function() {
+  describe('version', function() {
     it('should use field`s value when "versionField" is provided', function() {
       const testDoc = {
         field1: uuid.v4(),
@@ -995,6 +997,42 @@ describe('handler', function() {
           return expect(value).to.containSubset({
             body: [
               { index: { version: testDoc.field2, versionType: 'external' } }
+            ]
+          });
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+
+    it('should use the resolved value when "versionResolver" is provided', function() {
+      const testDoc = {
+        field1: uuid.v4(),
+        field2: 'asdf',
+        v: 3
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: testDoc,
+        keys: {
+          field1: testDoc.field1
+        }
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionResolver: doc => doc.v
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.containSubset({
+            body: [
+              { index: { version: 3, versionType: 'external' } }
             ]
           });
         }))
@@ -1040,7 +1078,7 @@ describe('handler', function() {
         .expectResult(() => mock.verify());
     });
 
-    it('should not set "version" and "versionType" fields when "versionField" is not provided', function() {
+    it('should not set "version" and "versionType" fields when neither "versionField" nor "versionResolver" is provided', function() {
       const testDoc = {
         field1: uuid.v4()
       };
@@ -1110,6 +1148,32 @@ describe('handler', function() {
           expect(err)
             .to.be.an.instanceOf(errors.ValidationError)
             .with.property('message', '"_version" must be a number');
+        });
+    });
+
+    it('should throw when resolved version is invalid', function() {
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: {
+          _version: '1'
+        },
+        keys: {
+          key: uuid.v4()
+        }
+      });
+
+      const handler = lambdaHandler({
+        index: 'index',
+        type: 'type',
+        versionResolver: doc => doc._version
+      });
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectError(err => {
+          expect(err)
+            .to.be.an.instanceOf(errors.ValidationError)
+            .with.property('message', '"resolved version" must be a number');
         });
     });
 
