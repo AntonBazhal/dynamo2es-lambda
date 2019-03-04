@@ -40,7 +40,9 @@ describe('handler', function() {
         indexField: 'bar',
         indexPrefix: 'baz',
         type: 'foo',
-        typeField: 'bar'
+        typeField: 'bar',
+        versionField: '_v',
+        versionResolver: () => {}
       };
 
       expect(() => lambdaHandler(testOptions))
@@ -48,6 +50,7 @@ describe('handler', function() {
         .with.property('message', formatErrorMessage([
           '"elasticsearch" conflict with forbidden peer "es"',
           '"options" contains a conflict between optional exclusive peers [idField, idResolver]',
+          '"options" contains a conflict between optional exclusive peers [versionField, versionResolver]',
           '"options" contains a conflict between exclusive peers [index, indexField]',
           '"options" contains a conflict between exclusive peers [type, typeField]',
           '"index" conflict with forbidden peer "indexPrefix"'
