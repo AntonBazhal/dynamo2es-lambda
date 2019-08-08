@@ -50,8 +50,8 @@ describe('handler', function() {
           '"options" contains a conflict between optional exclusive peers [idField, idResolver]',
           '"options" contains a conflict between optional exclusive peers [versionField, versionResolver]',
           '"options" contains a conflict between exclusive peers [index, indexField]',
+          '"index" conflict with forbidden peer "indexPrefix"',
           '"options" contains a conflict between exclusive peers [type, typeField]',
-          '"index" conflict with forbidden peer "indexPrefix"'
         ]));
     });
 
@@ -124,8 +124,8 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           '"options" must contain at least one of [index, indexField]',
+          '"indexPrefix" missing required peer "indexField"',
           '"options" must contain at least one of [type, typeField]',
-          '"indexPrefix" missing required peer "indexField"'
         ]));
     });
 
@@ -1583,6 +1583,67 @@ describe('handler', function() {
           expect(stub.callCount).to.be.equal(retryCount + 1);
           expect(err).to.deep.equal(testError);
         });
+    });
+  });
+
+  describe('elasticsearch.apiVersion >= 6', function() {
+    it('should not require the type or typeField options (v6)', function() {
+      const testOptions = {
+        elasticsearch: {
+          apiVersion: '6'
+        }
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          '"options" must contain at least one of [index, indexField]'
+        ]));
+    });
+
+    it('should not require the type or typeField options (v7)', function() {
+      const testOptions = {
+        elasticsearch: {
+          apiVersion: '7'
+        }
+      };
+
+      expect(() => lambdaHandler(testOptions))
+        .to.throw(errors.ValidationError)
+        .with.property('message', formatErrorMessage([
+          '"options" must contain at least one of [index, indexField]'
+        ]));
+    });
+
+    it('should omit _type from insert operation if type options are not given', function() {
+      const testKeys = { id: uuid.v4() };
+      const testEvent = formatEvent({ name: 'INSERT', keys: testKeys });
+
+      const handler = lambdaHandler({
+        elasticsearch: {
+          apiVersion: '6.3'
+        },
+        index: 'index'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .withExactArgs({
+          body: [
+            {
+              index: {
+                _index: 'index',
+                _id: testKeys.id
+              }
+            },
+            testKeys
+          ]
+        })
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
     });
   });
 });
