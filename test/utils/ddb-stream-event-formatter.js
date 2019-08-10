@@ -14,8 +14,8 @@ module.exports = function(records) {
     Records: records.map(record => {
       const eventName = record.name || 'INSERT';
       const keys = record.keys || { id: uuid.v4() };
-      const newImage = eventName === 'REMOVE' ? null : Object.assign({}, record.new, keys);
-      const oldImage = eventName === 'INSERT' ? null : Object.assign({}, keys, record.old);
+      const newImage = eventName === 'REMOVE' ? null : { ...record.new, ...keys };
+      const oldImage = eventName === 'INSERT' ? null : { ...keys, ...record.old };
 
       return {
         eventName,
