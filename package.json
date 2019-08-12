@@ -1,6 +1,6 @@
 {
   "name": "dynamo2es-lambda",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Configurable AWS Lambda handler to index documents from DynamoDB Streams in Amazon Elasticsearch",
   "repository": {
     "type": "git",
@@ -43,6 +43,12 @@
     "name": "Anton Bazhal",
     "email": "am.bazhal@gmail.com"
   },
+  "contributors": [
+    {
+      "name": "Jonathon Hill",
+      "email": "jhill9693@gmail.com"
+    }
+  ],
   "license": "MIT",
   "dependencies": {
     "alpha-lambda": "^1.1.0",

@@ -7,7 +7,7 @@ references:
 
   node_container: &node_container
     docker:
-      - image: circleci/node:6
+      - image: circleci/node:8
 
   attach_workspace: &attach_workspace
     attach_workspace:
