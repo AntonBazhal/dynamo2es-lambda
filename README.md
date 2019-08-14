@@ -21,7 +21,6 @@ $ npm install dynamo2es-lambda
 - **index** - { String } - Elasticsearch index to be used for all the documents; optional if `indexField` is provided
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
 - **[elasticsearch - alias: es]** - { Object } - Elasticsearch configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
-  - **[apiVersion]** - { String } - Specify the major version of the Elasticsearch nodes you will be connecting to
   - **[bulk]** - { Object } - aside from general Elasticsearch configuration, you can use this field to pass additional parameters to [bulk API][bulk-api-url]
 - **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; required if `indexPrefix` field is present; can't be used together with `index`
 - **[indexPrefix]** - { String } - static string to be used as a prefix to form index together with `indexField` value
