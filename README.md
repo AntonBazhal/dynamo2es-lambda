@@ -47,12 +47,12 @@ $ npm install --save dynamo2es-lambda elasticsearch aws-sdk
 ## Example
 
 ```js
-const elasticsearch = require('elasticsearch');
+const aeclient = require('aws-elasticsearch-client');
 const d2es = require('dynamo2es-lambda');
 
 module.exports.handler = d2es({
   elasticsearch: {
-    client: new elasticsearch.Client({
+    client: aeclient({
       hosts: 'your-aws-es-host.amazonaws.com'
     }),
     bulk: {
