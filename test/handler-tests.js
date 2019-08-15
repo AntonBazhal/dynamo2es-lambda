@@ -47,8 +47,8 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
-          '"elasticsearch" conflict with forbidden peer "es"',
           'child "elasticsearch" fails because [child "client" fails because ["client" is required]]',
+          '"es" is not allowed',
           '"options" contains a conflict between optional exclusive peers [idField, idResolver]',
           '"options" contains a conflict between optional exclusive peers [versionField, versionResolver]',
           '"options" contains a conflict between exclusive peers [index, indexField]',
@@ -79,7 +79,6 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
-          'child "es" fails because ["es" must be an object]',
           'child "beforeHook" fails because ["beforeHook" must be a Function]',
           'child "afterHook" fails because ["afterHook" must be a Function]',
           'child "recordErrorHook" fails because ["recordErrorHook" must be a Function]',
@@ -93,7 +92,8 @@ describe('handler', function() {
           'child "parentField" fails because ["parentField" must be a string]',
           'child "pickFields" fails because ["pickFields" must be a string, "pickFields" must be an array]',
           'child "versionField" fails because ["versionField" must be a string]',
-          'child "retryOptions" fails because ["retryOptions" must be an object]'
+          'child "retryOptions" fails because ["retryOptions" must be an object]',
+          '"es" is not allowed',
         ]));
     });
 
@@ -148,7 +148,7 @@ describe('handler', function() {
 
     it('should throw when elasticsearch.bulk options are invalid', function() {
       const testOptions = {
-        es: {
+        elasticsearch: {
           bulk: {
             body: {}
           }
