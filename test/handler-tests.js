@@ -4,6 +4,7 @@ const chaiSubset = require('chai-subset');
 const lambdaTester = require('lambda-tester').noVersionCheck();
 const sinon = require('sinon');
 const uuid = require('uuid');
+const elasticsearch = require('elasticsearch');
 
 const formatEvent = require('./utils/ddb-stream-event-formatter');
 const lambdaHandler = require('../');
@@ -47,6 +48,7 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           '"elasticsearch" conflict with forbidden peer "es"',
+          'child "elasticsearch" fails because [child "client" fails because ["client" is required]]',
           '"options" contains a conflict between optional exclusive peers [idField, idResolver]',
           '"options" contains a conflict between optional exclusive peers [versionField, versionResolver]',
           '"options" contains a conflict between exclusive peers [index, indexField]',
@@ -140,7 +142,7 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
-          'child "elasticsearch" fails because [child "bulk" fails because ["bulk" must be an object]]'
+          'child "elasticsearch" fails because [child "client" fails because ["client" is required], child "bulk" fails because ["bulk" must be an object]]'
         ]));
     });
 
@@ -158,7 +160,7 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
-          'child "es" fails because [child "bulk" fails because [child "body" fails because ["body" is not allowed]]]'
+          'child "elasticsearch" fails because [child "client" fails because ["client" is required], child "bulk" fails because [child "body" fails because ["body" is not allowed]]]'
         ]));
     });
 
@@ -182,7 +184,10 @@ describe('handler', function() {
       let hookCalled = false;
       const testEvent = formatEvent();
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         beforeHook: (event, context) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
@@ -194,7 +199,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      sinon.stub(handler.CLIENT, 'bulk').resolves();
+      sinon.stub(client, 'bulk').resolves();
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -217,7 +222,10 @@ describe('handler', function() {
         new: testItemData
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         afterHook: (event, context, result, parsedRecords) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
@@ -250,7 +258,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      const stub = sinon.stub(handler.CLIENT, 'bulk').resolves(testResult);
+      const stub = sinon.stub(client, 'bulk').resolves(testResult);
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -264,7 +272,10 @@ describe('handler', function() {
       const testEvent = formatEvent();
       const testHookResult = uuid.v4();
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         afterHook: () => {
           return Promise.resolve(testHookResult);
         },
@@ -272,7 +283,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      sinon.stub(handler.CLIENT, 'bulk').resolves();
+      sinon.stub(client, 'bulk').resolves();
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -313,7 +324,10 @@ describe('handler', function() {
       const testEvent = formatEvent();
       const testError = new Error('Winter is coming!');
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         errorHook: (event, context, err) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
@@ -325,7 +339,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+      const stub = sinon.stub(client, 'bulk').rejects(testError);
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -353,7 +367,10 @@ describe('handler', function() {
         old: oldRecord
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         transformRecordHook: (record, old) => {
           hookCalled = true;
           expect(record).to.have.property('someProperty').that.equals(originalRecord.someProperty);
@@ -364,7 +381,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value)
@@ -390,7 +407,10 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         transformRecordHook: () => {
           hookCalled = true;
           return null;
@@ -402,7 +422,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk').never();
+      const mock = sinon.mock(client).expects('bulk').never();
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -426,13 +446,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         separator: testSeparator,
         indexField: ['field1', 'field2'],
         typeField: ['field1', 'field2']
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           const expectedConcat = `${testField1}${testSeparator}${testField2}`;
@@ -461,13 +484,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         separator: '',
         indexField: ['field1', 'field2'],
         typeField: ['field1', 'field2']
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           const expectedConcat = `${testField1}${testField2}`;
@@ -501,13 +527,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         idResolver: record => record.field,
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._id', testField);
@@ -529,13 +558,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         idField: 'field',
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._id', testField);
@@ -559,13 +591,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         idField: ['field1', 'field2'],
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._id', `${testField1}.${testField2}`);
@@ -605,12 +640,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._id', `${testField1}.${testField2}`);
@@ -628,12 +666,15 @@ describe('handler', function() {
       const testIndex = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: testIndex,
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._index', testIndex);
@@ -652,12 +693,15 @@ describe('handler', function() {
         keys: { field: testField }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         indexField: 'field',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._index', testField);
@@ -680,12 +724,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         indexField: ['field1', 'field2'],
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._index', `${testField1}.${testField2}`);
@@ -705,13 +752,16 @@ describe('handler', function() {
         keys: { field: testField }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         indexField: 'field',
         indexPrefix: testIndexPrefix,
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value)
@@ -746,12 +796,15 @@ describe('handler', function() {
       const testType = uuid.v4();
       const testEvent = formatEvent({ name: 'INSERT' });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: testType
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._type', testType);
@@ -770,12 +823,15 @@ describe('handler', function() {
         keys: { field: testField }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         typeField: 'field'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._type', testField);
@@ -798,12 +854,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         typeField: ['field1', 'field2']
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index._type', `${testField1}.${testField2}`);
@@ -843,13 +902,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         parentField: 'field'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index.parent', testField);
@@ -890,13 +952,16 @@ describe('handler', function() {
         new: testDoc
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         pickFields: 'field1'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[1]')
@@ -920,13 +985,16 @@ describe('handler', function() {
         new: testDoc
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         pickFields: ['field1', 'field2']
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[1]')
@@ -952,12 +1020,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[1]')
@@ -985,13 +1056,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1021,13 +1095,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         versionResolver: doc => doc.v
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1056,13 +1133,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1090,12 +1170,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.have.nested.property('body[0].index')
@@ -1190,13 +1273,16 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         versionField: 'field2'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1263,12 +1349,15 @@ describe('handler', function() {
       testEvent.Records[0].junk = 'junk';
       testEvent.Records[0].dynamodb.junk = 'junk';
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      sinon.stub(handler.CLIENT, 'bulk').resolves();
+      sinon.stub(client, 'bulk').resolves();
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -1290,12 +1379,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1325,12 +1417,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1360,12 +1455,15 @@ describe('handler', function() {
         }
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1433,11 +1531,14 @@ describe('handler', function() {
       const testKeys = { id: uuid.v4() };
       const testEvent = formatEvent({ name: 'INSERT', keys: testKeys });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs({
           body: [
@@ -1467,12 +1568,15 @@ describe('handler', function() {
         newImage: testDoc
       });
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1505,12 +1609,15 @@ describe('handler', function() {
         }
       ]);
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs(sinon.match(value => {
           return expect(value).to.containSubset({
@@ -1538,15 +1645,18 @@ describe('handler', function() {
         refresh: 'true'
       };
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
         elasticsearch: {
+          client,
           bulk: testBulkOptions
         },
         index: 'index',
         type: 'type'
       });
 
-      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+      const mock = sinon.mock(client).expects('bulk')
         .once()
         .withExactArgs({
           body: [
@@ -1574,12 +1684,15 @@ describe('handler', function() {
       const testEvent = formatEvent();
       const testError = new Error('indexing error');
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type'
       });
 
-      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+      const stub = sinon.stub(client, 'bulk').rejects(testError);
 
       return lambdaTester(handler)
         .event(testEvent)
@@ -1594,7 +1707,10 @@ describe('handler', function() {
       const testError = new Error('indexing error');
       const retryCount = 2;
 
+      const client = new elasticsearch.Client();
+
       const handler = lambdaHandler({
+        elasticsearch: { client },
         index: 'index',
         type: 'type',
         retryOptions: {
@@ -1602,7 +1718,7 @@ describe('handler', function() {
         }
       });
 
-      const stub = sinon.stub(handler.CLIENT, 'bulk').rejects(testError);
+      const stub = sinon.stub(client, 'bulk').rejects(testError);
 
       return lambdaTester(handler)
         .event(testEvent)
