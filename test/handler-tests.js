@@ -79,6 +79,7 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
+          'child "elasticsearch" fails because ["elasticsearch" is required]',
           'child "beforeHook" fails because ["beforeHook" must be a Function]',
           'child "afterHook" fails because ["afterHook" must be a Function]',
           'child "recordErrorHook" fails because ["recordErrorHook" must be a Function]',
@@ -125,6 +126,7 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
+          'child "elasticsearch" fails because ["elasticsearch" is required]',
           '"options" must contain at least one of [index, indexField]',
           '"indexPrefix" missing required peer "indexField"',
         ]));
@@ -166,6 +168,9 @@ describe('handler', function() {
 
     it('should throw when unknown options passed', function() {
       const testOptions = {
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         junk: 'junk',
         index: 'index',
         type: 'type'
@@ -297,6 +302,9 @@ describe('handler', function() {
       const testEvent = formatEvent();
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         recordErrorHook: (event, context, err) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
@@ -615,6 +623,9 @@ describe('handler', function() {
     it('should throw when "idField" not found in record', function() {
       const testEvent = formatEvent();
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         idField: 'notFoundField',
         index: 'index',
         type: 'type'
@@ -777,6 +788,9 @@ describe('handler', function() {
     it('should throw when "indexField" not found in record', function() {
       const testEvent = formatEvent();
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         indexField: 'notFoundField',
         type: 'type'
       });
@@ -877,6 +891,9 @@ describe('handler', function() {
     it('should throw when "typeField" not found in record', function() {
       const testEvent = formatEvent();
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         typeField: 'notFoundField'
       });
@@ -926,6 +943,9 @@ describe('handler', function() {
     it('should throw when "parentField" not found in record', function() {
       const testEvent = formatEvent();
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         parentField: 'notFoundField'
@@ -1194,6 +1214,9 @@ describe('handler', function() {
     it('should throw when "versionField" not found in record', function() {
       const testEvent = formatEvent();
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         versionField: 'notFoundField'
@@ -1220,6 +1243,9 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         versionField: '_version'
@@ -1246,6 +1272,9 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         versionResolver: doc => doc._version
@@ -1306,6 +1335,9 @@ describe('handler', function() {
       delete testEvent.Records[0].dynamodb;
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type'
       });
@@ -1328,6 +1360,9 @@ describe('handler', function() {
       delete testEvent.Records[0].eventName;
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         errorHook: (event, context, err) => {
@@ -1485,6 +1520,9 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type'
       });
@@ -1505,6 +1543,9 @@ describe('handler', function() {
       });
 
       const handler = lambdaHandler({
+        elasticsearch: {
+          client: new elasticsearch.Client()
+        },
         index: 'index',
         type: 'type',
         recordErrorHook: (event, context, err) => {
