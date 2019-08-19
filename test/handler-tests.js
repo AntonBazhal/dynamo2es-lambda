@@ -1,10 +1,9 @@
-const _ = require('lodash');
 const chai = require('chai');
 const chaiSubset = require('chai-subset');
+const elasticsearch = require('elasticsearch');
 const lambdaTester = require('lambda-tester').noVersionCheck();
 const sinon = require('sinon');
 const uuid = require('uuid');
-const elasticsearch = require('elasticsearch');
 
 const formatEvent = require('./utils/ddb-stream-event-formatter');
 const lambdaHandler = require('../');
@@ -249,13 +248,13 @@ describe('handler', function() {
                   eventSource: testEvent.Records[0].eventSource,
                   dynamodb: {
                     Keys: testItemKeys,
-                    NewImage: _.assign({}, testItemKeys, testItemData),
+                    NewImage: { ...testItemKeys, ...testItemData },
                     OldImage: {},
                     StreamViewType: testEvent.Records[0].dynamodb.StreamViewType
                   }
                 },
                 action: { index: { _index: 'index', _type: 'type', _id: testItemKeys.id } },
-                document: _.assign({}, testItemKeys, testItemData)
+                document: { ...testItemKeys, ...testItemData }
               }
             ]);
         },
