@@ -11,7 +11,7 @@ Configurable [AWS Lambda][aws-lambda-url] handler to index documents from [Dynam
 ## Installation
 
 ```bash
-$ npm install dynamo2es-lambda
+$ npm install --save dynamo2es-lambda @elastic/elasticsearch aws-sdk
 ```
 
 ## Usage
@@ -20,7 +20,8 @@ $ npm install dynamo2es-lambda
 
 - **index** - { String } - Elasticsearch index to be used for all the documents; optional if `indexField` is provided
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
-- **[elasticsearch - alias: es]** - { Object } - Elasticsearch configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
+- **[elasticsearch]** - { Object }
+  - **[client]** - { Object } - an [elasticsearch][elasticsearch-client-url] client instance (also works with the [legacy 16.x client][elasticsearch-legacy-client-url])
   - **[bulk]** - { Object } - aside from general Elasticsearch configuration, you can use this field to pass additional parameters to [bulk API][bulk-api-url]
 - **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; required if `indexPrefix` field is present; can't be used together with `index`
 - **[indexPrefix]** - { String } - static string to be used as a prefix to form index together with `indexField` value
@@ -46,11 +47,16 @@ $ npm install dynamo2es-lambda
 ## Example
 
 ```js
+const { Client } = require('@elastic/elasticsearch');
 const d2es = require('dynamo2es-lambda');
 
 module.exports.handler = d2es({
   elasticsearch: {
-    hosts: 'your-aws-es-host.amazonaws.com',
+    client: new Client({
+      node: 'your-aws-es-host.amazonaws.com',
+      // Optional, if you need to sign the request with IAM credentials
+      // Connection: require('aws-elasticsearch-connector')
+    }),
     bulk: {
       refresh: 'wait_for'
     }
@@ -70,7 +76,12 @@ module.exports.handler = d2es({
   errorHook: (event, context, err) => context.log.error({ err }),
   recordErrorHook: (event, context, err) => context.log.error({ err }),
   transformRecordHook: (record, old) => {
-    return Object.assign({}, record, {fullName: `${record.firstName} ${record.lastName}`});
+    return {
+      ...record,
+      {
+        fullName: `${record.firstName} ${record.lastName}`
+      }
+    };
   }
 });
 ```
@@ -118,7 +129,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 [alpha-lambda-bunyan-url-url]: https://www.npmjs.com/package/alpha-lambda-bunyan
 [alpha-lambda-url]: https://www.npmjs.com/package/alpha-lambda
-[aws-elasticsearch-client-url]: https://www.npmjs.com/package/aws-elasticsearch-client
+[elasticsearch-client-url]: https://www.npmjs.com/package/@elastic/elasticsearch
+[elasticsearch-legacy-client-url]: https://www.npmjs.com/package/elasticsearch
 [aws-elasticsearch-url]: https://aws.amazon.com/elasticsearch-service/
 [aws-lambda-url]: https://aws.amazon.com/lambda/details/
 [bulk-api-url]: https://www.elastic.co/guide/en/elasticsearch/client/javascript-api/current/api-reference.html#api-bulk
