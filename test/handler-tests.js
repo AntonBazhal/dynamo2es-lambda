@@ -1026,6 +1026,49 @@ describe('handler', function() {
         .expectResult(() => mock.verify());
     });
 
+    it('should use "pickFields" when provided (dot notation)', function() {
+      const testDoc = {
+        field1: uuid.v4(),
+        field2: uuid.v4(),
+        foo: {
+          bar: 'baz'
+        }
+      };
+      const testEvent = formatEvent({
+        name: 'INSERT',
+        new: testDoc
+      });
+
+      const client = new elasticsearch.Client();
+
+      const handler = lambdaHandler({
+        elasticsearch: { client },
+        index: 'index',
+        type: 'type',
+        pickFields: [
+          'field1',
+          'foo.bar'
+        ]
+      });
+
+      const mock = sinon.mock(client).expects('bulk')
+        .once()
+        .withExactArgs(sinon.match(value => {
+          return expect(value).to.have.nested.property('body[1]')
+            .that.deep.equals({
+              field1: testDoc.field1,
+              foo: {
+                bar: 'baz'
+              }
+            });
+        }))
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => mock.verify());
+    });
+
     it('should pick all the fields when "pickFields" not provided', function() {
       const testDoc = {
         field1: uuid.v4(),
