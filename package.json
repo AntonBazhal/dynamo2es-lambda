@@ -1,6 +1,6 @@
 {
   "name": "dynamo2es-lambda",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Configurable AWS Lambda handler to index documents from DynamoDB Streams in Amazon Elasticsearch",
   "repository": {
     "type": "git",
@@ -23,7 +23,6 @@
   ],
   "main": "index.js",
   "scripts": {
-    "preinstall": "npm prune",
     "lint": "eslint .",
     "test": "nyc mocha --",
     "pretest": "npm run lint"
@@ -37,7 +36,10 @@
       "**/test/**"
     ],
     "excludeNodeModules": true,
-    "reporter": ["lcov", "text-summary"]
+    "reporter": [
+      "lcov",
+      "text-summary"
+    ]
   },
   "author": {
     "name": "Anton Bazhal",
@@ -51,9 +53,9 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "alpha-lambda": "^1.1.0",
-    "alpha-lambda-bunyan": "^1.3.0",
-    "aws-elasticsearch-client": "^1.2.1",
+    "@alpha-lambda/handler": "^1.2.1",
+    "alpha-lambda-bunyan": "^1.4.0",
+    "aws-elasticsearch-client": "^1.2.3",
     "aws-sdk": "^2.507.0",
     "joi": "^14.3.1",
     "lodash": "^4.17.15",
@@ -67,7 +69,7 @@
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-plugin-import": "^2.18.2",
     "eslint-plugin-mocha": "^6.0.0",
-    "lambda-tester": "^3.6.0",
+    "lambda-tester": "^4.0.1",
     "mocha": "^6.2.0",
     "nyc": "^14.1.1",
     "sinon": "^7.4.1",
