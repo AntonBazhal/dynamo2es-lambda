@@ -208,10 +208,7 @@ describe('handler', function() {
       let hookCalled = false;
       const testEvent = formatEvent();
 
-      const client = new elasticsearch.Client();
-
       const handler = lambdaHandler({
-        elasticsearch: { client },
         beforeHook: async () => {
           // Force hook to bottom of event loop to test promise.
           await new Promise(resolve => setTimeout(resolve, null));
@@ -221,7 +218,7 @@ describe('handler', function() {
         type: 'type'
       });
 
-      sinon.stub(client, 'bulk').resolves();
+      sinon.stub(handler.CLIENT, 'bulk').resolves();
 
       return lambdaTester(handler)
         .event(testEvent)
