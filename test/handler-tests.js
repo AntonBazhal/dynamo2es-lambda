@@ -4,6 +4,7 @@ const chaiSubset = require('chai-subset');
 const lambdaTester = require('lambda-tester').noVersionCheck();
 const sinon = require('sinon');
 const uuid = require('uuid');
+const aeclient = require('aws-elasticsearch-client');
 
 const formatEvent = require('./utils/ddb-stream-event-formatter');
 const lambdaHandler = require('../');
@@ -132,6 +133,7 @@ describe('handler', function() {
     it('should throw when elasticsearch options are invalid', function() {
       const testOptions = {
         elasticsearch: {
+          client: '',
           bulk: ''
         },
         index: 'index',
@@ -141,7 +143,7 @@ describe('handler', function() {
       expect(() => lambdaHandler(testOptions))
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
-          'child "elasticsearch" fails because [child "bulk" fails because ["bulk" must be an object]]'
+          'child "elasticsearch" fails because [child "client" fails because ["client" must be an object], child "bulk" fails because ["bulk" must be an object]]'
         ]));
     });
 
@@ -1605,6 +1607,29 @@ describe('handler', function() {
         .expectError(err => {
           expect(stub.callCount).to.be.equal(retryCount + 1);
           expect(err).to.deep.equal(testError);
+        });
+    });
+  });
+
+  describe('client override', function() {
+    it('should use provided es client', function() {
+      const testEvent = formatEvent();
+      const stubbedClient = sinon.stub(aeclient.create());
+
+      const handler = lambdaHandler({
+        elasticsearch: {
+          client: stubbedClient,
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      stubbedClient.bulk.resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          expect(stubbedClient.bulk.callCount).to.equal(1);
         });
     });
   });
