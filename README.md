@@ -22,6 +22,7 @@ $ npm install dynamo2es-lambda
 - **type** - { String } - Elasticsearch type to be used for all the documents; optional if `typeField` is provided
 - **[elasticsearch - alias: es]** - { Object } - Elasticsearch configuration; under the hood library uses [aws-elasticsearch-client][aws-elasticsearch-client-url]; for more information check [this documentation][aws-elasticsearch-client-url]
   - **[bulk]** - { Object } - aside from general Elasticsearch configuration, you can use this field to pass additional parameters to [bulk API][bulk-api-url]
+  - **[client]** - { Object } - an [elasticsearch](https://www.npmjs.com/package/elasticsearch) compatible client instance. All other options, except bulk, are ignored.
 - **[indexField]** - { String | String[] } - field(s) to be used as an Elasticsearch index; if multiple fields are provided, values are concatenated using `separator`; required if `indexPrefix` field is present; can't be used together with `index`
 - **[indexPrefix]** - { String } - static string to be used as a prefix to form index together with `indexField` value
 - **[typeField]** - { String | String[] } - field(s) to be used as an Elasticsearch type; if multiple fields are provided, values are concatenated using `separator`; can't be used together with `type`
@@ -51,6 +52,41 @@ const d2es = require('dynamo2es-lambda');
 module.exports.handler = d2es({
   elasticsearch: {
     hosts: 'your-aws-es-host.amazonaws.com',
+    bulk: {
+      refresh: 'wait_for'
+    }
+  },
+  indexField: ['storeId', 'customerId'],
+  type: 'type',
+  idField: 'orderId',
+  versionField: '_version',
+  separator: '-',
+  beforeHook: (event, context) => context.log.info({ event }),
+  afterHook: (event, context, result) => {
+    context.log.info({ result });
+    if (result.errors) {
+      /* error handling logic */
+    }
+  },
+  errorHook: (event, context, err) => context.log.error({ err }),
+  recordErrorHook: (event, context, err) => context.log.error({ err }),
+  transformRecordHook: (record, old) => {
+    return Object.assign({}, record, {fullName: `${record.firstName} ${record.lastName}`});
+  }
+});
+```
+
+### Custom Elasticsearch Client
+
+```js
+const d2es = require('dynamo2es-lambda');
+const elasticsearch = require('elasticsearch');
+
+module.exports.handler = d2es({
+  elasticsearch: {
+    client: new elasticsearch.Client({
+      hosts: 'your-aws-es-host.amazonaws.com',
+    }),
     bulk: {
       refresh: 'wait_for'
     }
