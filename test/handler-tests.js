@@ -59,6 +59,7 @@ describe('handler', function() {
     it('should throw when options are invalid (first set)', function() {
       const testOptions = {
         es: 'foo',
+        bunyan: 'yes',
         beforeHook: {},
         afterHook: {},
         recordErrorHook: {},
@@ -79,6 +80,7 @@ describe('handler', function() {
         .to.throw(errors.ValidationError)
         .with.property('message', formatErrorMessage([
           'child "es" fails because ["es" must be an object]',
+          'child "bunyan" fails because ["bunyan" must be a boolean]',
           'child "beforeHook" fails because ["beforeHook" must be a Function]',
           'child "afterHook" fails because ["afterHook" must be a Function]',
           'child "recordErrorHook" fails because ["recordErrorHook" must be a Function]',
@@ -1630,6 +1632,91 @@ describe('handler', function() {
         .event(testEvent)
         .expectResult(() => {
           expect(stubbedClient.bulk.callCount).to.equal(1);
+        });
+    });
+  });
+
+  describe('bunyan', function() {
+    it('should add bunyan logger to the context when bunyan option is true', function() {
+      const testEvent = formatEvent();
+      let hookCalled = false;
+
+      const handler = lambdaHandler({
+        beforeHook: (event, context) => {
+          hookCalled = true;
+          expect(context)
+            .to.exist
+            .and.to.have.property('log');
+        },
+        bunyan: true,
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          mock.verify();
+          expect(hookCalled).to.be.true;
+        });
+    });
+
+    it('should add bunyan logger to the context when bunyan option is not passed', function() {
+      const testEvent = formatEvent();
+      let hookCalled = false;
+
+      const handler = lambdaHandler({
+        beforeHook: (event, context) => {
+          hookCalled = true;
+          expect(context)
+            .to.exist
+            .and.to.have.property('log');
+        },
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          mock.verify();
+          expect(hookCalled).to.be.true;
+        });
+    });
+
+    it('should not add bunyan logger to the context when bunyan option is false', function() {
+      const testEvent = formatEvent();
+      let hookCalled = false;
+
+      const handler = lambdaHandler({
+        beforeHook: (event, context) => {
+          hookCalled = true;
+          expect(context)
+            .to.exist
+            .and.not.to.have.property('log');
+        },
+        bunyan: false,
+        index: 'index',
+        type: 'type'
+      });
+
+      const mock = sinon.mock(handler.CLIENT).expects('bulk')
+        .once()
+        .resolves();
+
+      return lambdaTester(handler)
+        .event(testEvent)
+        .expectResult(() => {
+          mock.verify();
+          expect(hookCalled).to.be.true;
         });
     });
   });
