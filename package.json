@@ -1,6 +1,6 @@
 {
   "name": "dynamo2es-lambda",
-  "version": "1.9.0",
+  "version": "1.10.0",
   "description": "Configurable AWS Lambda handler to index documents from DynamoDB Streams in Amazon Elasticsearch",
   "repository": {
     "type": "git",
