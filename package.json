@@ -77,7 +77,7 @@
     "eslint-plugin-import": "^2.18.2",
     "eslint-plugin-mocha": "^6.0.0",
     "lambda-tester": "^3.6.0",
-    "mocha": "^6.2.0",
+    "mocha": "^10.2.0",
     "nyc": "^15.0.0",
     "sinon": "^7.4.1",
     "uuid": "^3.3.2"
