@@ -330,7 +330,7 @@ describe('handler', function() {
         elasticsearch: {
           client: new elasticsearch.Client()
         },
-        recordErrorHook: (event, context, err) => {
+        recordErrorHook: async (event, context, err) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
           expect(context)
@@ -361,7 +361,7 @@ describe('handler', function() {
 
       const handler = lambdaHandler({
         elasticsearch: { client },
-        errorHook: (event, context, err) => {
+        errorHook: async (event, context, err) => {
           hookCalled = true;
           expect(event).to.deep.equal(testEvent);
           expect(context).to.exist.and.to.have.property('awsRequestId');
@@ -404,7 +404,7 @@ describe('handler', function() {
 
       const handler = lambdaHandler({
         elasticsearch: { client },
-        transformRecordHook: (record, old) => {
+        transformRecordHook: async (record, old) => {
           hookCalled = true;
           expect(record).to.have.property('someProperty').that.equals(originalRecord.someProperty);
           expect(old).to.have.property('someProperty').that.equals(oldRecord.someProperty);
@@ -444,7 +444,7 @@ describe('handler', function() {
 
       const handler = lambdaHandler({
         elasticsearch: { client },
-        transformRecordHook: () => {
+        transformRecordHook: async () => {
           hookCalled = true;
           return null;
         },
@@ -1433,7 +1433,7 @@ describe('handler', function() {
         },
         index: 'index',
         type: 'type',
-        errorHook: (event, context, err) => {
+        errorHook: async (event, context, err) => {
           hookCalled = true;
           expect(err).to.be.an.instanceOf(errors.ValidationError);
         }
@@ -1616,7 +1616,7 @@ describe('handler', function() {
         },
         index: 'index',
         type: 'type',
-        recordErrorHook: (event, context, err) => {
+        recordErrorHook: async (event, context, err) => {
           handlerCalled = true;
           expect(err).to.be.an.instanceOf(errors.UnknownEventNameError);
           expect(err).to.have.property('message', '"UNKNOWN" is an unknown event name');
