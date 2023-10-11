@@ -42,7 +42,7 @@ jobs:
       - checkout
       - *attach_workspace
       - run: sudo npm install -g publish
-      - run: publish
+      - run: publish --tag v1-latest
 
 workflows:
   version: 2
