@@ -7,7 +7,7 @@ references:
 
   node_container: &node_container
     docker:
-      - image: circleci/node:8
+      - image: circleci/node:12
 
   attach_workspace: &attach_workspace
     attach_workspace:
@@ -16,14 +16,14 @@ references:
   run_on_master: &run_on_master
     filters:
       branches:
-        only: master
+        only: v1-support
 
 jobs:
   dependencies:
     <<: *node_container
     steps:
       - checkout
-      - run: npm install
+      - run: npm ci
       - persist_to_workspace:
           root: *workspace_root
           paths:
