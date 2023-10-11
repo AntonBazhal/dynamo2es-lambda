@@ -41,7 +41,7 @@ $ npm install dynamo2es-lambda
 - **[transformRecordHook]** - { Function(record, old) } - optional function to perform custom data processing; accepts single record and old image; record is omitted if function does not return result; useful for reshaping/excluding document before sending it to Elasticsearch
 - **[bunyan]** - { Boolean } - `context` object, available in hooks, includes [`bunyan` context extension provided by `alpha-lambda-bunyan`][alpha-lambda-bunyan-url] unless this option is set to `false` [defaults to `true`]
 
-> Note: `afterHook` and `errorHook` support asynchronous operations when logic is wrapped into Promise
+> Note: All hooks can be asynchronous
 
 ## Example
 
