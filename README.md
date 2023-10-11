@@ -42,7 +42,7 @@ $ npm install --save dynamo2es-lambda @elastic/elasticsearch aws-sdk
 
 > Note: `context` object, available in hooks, includes [`bunyan` context extension provided by `alpha-lambda-bunyan`][alpha-lambda-bunyan-url]
 
-> Note: `afterHook` and `errorHook` support asynchronous operations when logic is wrapped into Promise
+> Note: All hooks can be asynchronous
 
 ## Example
 
@@ -75,7 +75,7 @@ module.exports.handler = d2es({
   },
   errorHook: (event, context, err) => context.log.error({ err }),
   recordErrorHook: (event, context, err) => context.log.error({ err }),
-  transformRecordHook: (record, old) => {
+  transformRecordHook: (record, old, context) => {
     return {
       ...record,
       {
